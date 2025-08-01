@@ -1,29 +1,41 @@
 {
   "expo": {
-    "name": "dagster-mobile",
+    "name": "Dagster+ Mobile",
     "slug": "dagster-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/dagster-icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/dagster-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dagster.mobile"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/dagster-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "package": "com.dagster.mobile",
+      "targetSdkVersion": 35,
+      "minSdkVersion": 16,
+      "enableProguardInReleaseBuilds": true,
+      "enableSeparateBuildPerCPUArchitecture": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/dagster-icon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3d630964-b73b-445f-af52-58a8e2a65b3b"
+      }
     }
   }
 }

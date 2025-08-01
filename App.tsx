@@ -1,20 +1,63 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { ApolloProvider } from '@apollo/client';
+import { Provider as PaperProvider } from 'react-native-paper';
+import { apolloClient, updateApolloClientWithSettings } from './lib/apollo-client';
+import AppNavigator from './components/navigation/AppNavigator';
+import { ThemeProvider, useTheme } from './components/ThemeProvider';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const AppContent = () => {
+  const { theme } = useTheme();
+  const [isFirstRun, setIsFirstRun] = React.useState(true);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    checkFirstRun();
+  }, []);
+
+  const checkFirstRun = async () => {
+    try {
+      const hasConfigured = await AsyncStorage.getItem('dagster_api_url');
+      if (!hasConfigured) {
+        setIsFirstRun(true);
+      } else {
+        // Load stored settings and update Apollo client
+        await updateApolloClientWithSettings();
+      }
+    } catch (error) {
+      console.warn('Error checking first run:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFirstRunComplete = async () => {
+    try {
+      // Load stored settings and update Apollo client
+      await updateApolloClientWithSettings();
+      setIsFirstRun(false);
+    } catch (error) {
+      console.warn('Error completing first run:', error);
+    }
+  };
+
+  if (isLoading) {
+    return null; // Or a loading screen
+  }
+
+  return (
+    <ApolloProvider client={apolloClient}>
+      <PaperProvider theme={theme}>
+        <AppNavigator isFirstRun={isFirstRun} onFirstRunComplete={handleFirstRunComplete} />
+      </PaperProvider>
+    </ApolloProvider>
+  );
+};
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
