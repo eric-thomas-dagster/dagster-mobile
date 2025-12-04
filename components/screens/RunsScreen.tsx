@@ -176,14 +176,18 @@ const RunsScreen: React.FC<RunsScreenProps> = ({ navigation, route }) => {
               onPress={() => handleTargetPress(item.pipelineName)}
               disabled={item.pipelineName === '__ASSET_JOB'}
             >
-              <Paragraph style={[
-                styles.targetJobName, 
-                { 
-                  color: item.pipelineName === '__ASSET_JOB' 
-                    ? theme.colors.onSurfaceVariant 
-                    : theme.colors.primary 
-                }
-              ]}>
+              <Paragraph 
+                style={[
+                  styles.targetJobName, 
+                  { 
+                    color: item.pipelineName === '__ASSET_JOB' 
+                      ? theme.colors.onSurfaceVariant 
+                      : theme.colors.primary 
+                  }
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {item.pipelineName}
               </Paragraph>
             </TouchableOpacity>
@@ -314,6 +318,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
+    flex: 1,
   },
   targetLabel: {
     fontSize: 14,
@@ -321,6 +326,8 @@ const styles = StyleSheet.create({
   },
   targetJobName: {
     fontSize: 14,
+    flex: 1,
+    marginLeft: 4,
   },
   runTime: {
     fontSize: 14,

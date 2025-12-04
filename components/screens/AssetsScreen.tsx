@@ -573,7 +573,7 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
           <View style={styles.assetHeader}>
             <View style={styles.assetNameContainer}>
               <AssetIcon color={theme.colors.onSurface} size={16} />
-              <Title style={styles.assetName}>{path}</Title>
+              <Title style={styles.assetName} numberOfLines={1} ellipsizeMode="tail">{path}</Title>
             </View>
             <View style={styles.healthContainer}>
               {healthIcon}
@@ -830,10 +830,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    gap: 8,
+    marginRight: 8,
   },
   assetName: {
     fontSize: 16,
+    flexShrink: 1,
+    marginLeft: 8,
   },
   assetDescription: {
     fontSize: 14,

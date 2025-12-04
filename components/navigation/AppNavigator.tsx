@@ -19,6 +19,7 @@ import AssetDetailScreen from '../screens/AssetDetailScreen';
 import JobDetailScreen from '../screens/JobDetailScreen';
 import RunDetailScreen from '../screens/RunDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import InsightsScreen from '../screens/InsightsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -55,6 +56,15 @@ const AutomationIcon = ({ color, size }: { color: string; size: number }) => (
   <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
     <Path
       d="M9.99199 1.66663C5.39199 1.66663 1.66699 5.39996 1.66699 9.99996C1.66699 14.6 5.39199 18.3333 9.99199 18.3333C14.6003 18.3333 18.3337 14.6 18.3337 9.99996C18.3337 5.39996 14.6003 1.66663 9.99199 1.66663ZM10.0003 16.6666C6.31699 16.6666 3.33366 13.6833 3.33366 9.99996C3.33366 6.31663 6.31699 3.33329 10.0003 3.33329C13.6837 3.33329 16.667 6.31663 16.667 9.99996C16.667 13.6833 13.6837 16.6666 10.0003 16.6666ZM10.417 5.83329H9.16699V10.8333L13.542 13.4583L14.167 12.4333L10.417 10.2083V5.83329Z"
+      fill={color}
+    />
+  </Svg>
+);
+
+const InsightsIcon = ({ color, size }: { color: string; size: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+    <Path
+      d="M2.5 15.8333V17.5H17.5V15.8333H2.5ZM4.16667 12.5L5.20833 11.4583L7.5 13.75L14.7917 6.45833L15.8333 7.5L7.5 15.8333L4.16667 12.5ZM4.16667 8.33333L5.20833 7.29167L7.5 9.58333L14.7917 2.29167L15.8333 3.33333L7.5 11.6667L4.16667 8.33333Z"
       fill={color}
     />
   </Svg>
@@ -279,6 +289,32 @@ const SettingsStack = () => {
 );
 };
 
+const InsightsStack = () => {
+  const { theme } = useTheme();
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: theme.colors.surface,
+        },
+        headerTintColor: theme.colors.onSurface,
+        headerTitleStyle: {
+          color: theme.colors.onSurface,
+        },
+      }}
+    >
+    <Stack.Screen 
+      name="InsightsMain" 
+      component={InsightsScreen} 
+      options={{ 
+        headerTitle: () => <HeaderWithLogo title="Insights" />,
+        headerTitleAlign: 'left'
+      }}
+    />
+  </Stack.Navigator>
+);
+};
+
 // Main tab navigator
 const TabNavigator = () => {
   const { theme } = useTheme();
@@ -297,8 +333,10 @@ const TabNavigator = () => {
           return <JobsIcon color={color} size={size} />;
         } else if (route.name === 'Runs') {
           return <RunsIcon color={color} size={size} />;
-        } else if (route.name === 'Automation') {
+        } else         if (route.name === 'Automation') {
           return <AutomationIcon color={color} size={size} />;
+        } else if (route.name === 'Insights') {
+          return <InsightsIcon color={color} size={size} />;
         } else {
           iconName = 'help';
         }
@@ -324,6 +362,7 @@ const TabNavigator = () => {
                   route.name === 'Runs' ? 'RunsList' : 
                   route.name === 'Catalog' ? 'AssetsList' : 
                   route.name === 'Automation' ? 'AutomationList' : 
+                  route.name === 'Insights' ? 'InsightsMain' :
                   route.name === 'Home' ? 'HomeMain' : 
                   'HomeMain'
         });
@@ -335,6 +374,7 @@ const TabNavigator = () => {
     <Tab.Screen name="Jobs" component={JobsStack} />
     <Tab.Screen name="Runs" component={RunsStack} />
     <Tab.Screen name="Automation" component={AutomationStack} />
+    <Tab.Screen name="Insights" component={InsightsStack} />
   </Tab.Navigator>
 );
 };

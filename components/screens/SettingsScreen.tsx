@@ -223,30 +223,37 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {isFirstRun && (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+        keyboardShouldPersistTaps="handled"
+        bounces={true}
+      >
+        {isFirstRun && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Title>Welcome to Dagster+ Mobile!</Title>
+              <Paragraph style={styles.welcomeText}>
+                To get started, please configure your Dagster instance details below.
+                You'll need your Dagster URL and API token.
+              </Paragraph>
+              <Button 
+                mode="outlined" 
+                onPress={() => navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Main' }],
+                })}
+                style={styles.skipButton}
+              >
+                Skip Setup (Configure Later)
+              </Button>
+            </Card.Content>
+          </Card>
+        )}
+        
         <Card style={styles.card}>
-          <Card.Content>
-            <Title>Welcome to Dagster+ Mobile!</Title>
-            <Paragraph style={styles.welcomeText}>
-              To get started, please configure your Dagster instance details below.
-              You'll need your Dagster URL and API token.
-            </Paragraph>
-            <Button 
-              mode="outlined" 
-              onPress={() => navigation.reset({
-                index: 0,
-                routes: [{ name: 'Main' }],
-              })}
-              style={styles.skipButton}
-            >
-              Skip Setup (Configure Later)
-            </Button>
-          </Card.Content>
-        </Card>
-      )}
-      
-      <Card style={styles.card}>
         <Card.Content>
           <Title>API Configuration</Title>
           <TextInput
@@ -288,8 +295,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
           </Button>
         </Card.Content>
       </Card>
-
-
 
       <Card style={styles.card}>
         <Card.Content>
@@ -336,14 +341,15 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
         </Card.Content>
       </Card>
 
-      <View style={styles.buttonContainer}>
-        <Button mode="contained" onPress={saveSettings} style={styles.saveButton}>
-          Save Settings
-        </Button>
-        <Button mode="outlined" onPress={resetSettings} style={styles.resetButton}>
-          Reset to Default
-        </Button>
-      </View>
+        <View style={styles.buttonContainer}>
+          <Button mode="contained" onPress={saveSettings} style={styles.saveButton}>
+            Save Settings
+          </Button>
+          <Button mode="outlined" onPress={resetSettings} style={styles.resetButton}>
+            Reset to Default
+          </Button>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -352,6 +358,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 32,
   },
   card: {
     margin: 16,

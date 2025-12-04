@@ -1594,6 +1594,132 @@ export const GET_JOB_METADATA = gql`
   }
 `;
 
+// Query for insights - assets selection
+// This query fetches metrics data for assets based on different metric types
+export const GET_INSIGHTS_ASSETS_SELECTION = gql`
+  query InsightsAssetsSelectionQuery(
+    $metricsFilter: AssetSelectionReportingMetricsFilter!
+    $metricsSelector: ReportingMetricsSelector!
+    $metricsStoreType: MetricsStoreType
+  ) {
+    reportingMetricsByAssetSelection(
+      metricsFilter: $metricsFilter
+      metricsSelector: $metricsSelector
+      metricsStoreType: $metricsStoreType
+    ) {
+      ... on ReportingMetrics {
+        metrics {
+          ...InsightsEntryFragment
+          __typename
+        }
+        timestamps
+        __typename
+      }
+      __typename
+    }
+  }
+
+  fragment InsightsEntryFragment on ReportingEntry {
+    entity {
+      ... on ReportingAssetGroup {
+        groupName
+        codeLocationName
+        repositoryName
+        __typename
+      }
+      ... on ReportingAsset {
+        assetKey {
+          path
+          __typename
+        }
+        assetGroup
+        codeLocationName
+        repositoryName
+        __typename
+      }
+      ... on ReportingJob {
+        jobName
+        codeLocationName
+        repositoryName
+        __typename
+      }
+      ... on DagsterCloudDeployment {
+        deploymentId
+        deploymentName
+        __typename
+      }
+      __typename
+    }
+    aggregateValue
+    aggregateValueChange {
+      change
+      isNewlyAvailable
+      __typename
+    }
+    values
+    __typename
+  }
+`;
+
+// Query for insights - assets (for asset breakdown tables)
+export const GET_INSIGHTS_ASSETS = gql`
+  query InsightsAssetsQuery(
+    $metricsFilter: AssetReportingMetricsFilter
+    $metricsSelector: ReportingMetricsSelector!
+    $metricsStoreType: MetricsStoreType
+  ) {
+    reportingMetricsByAsset(
+      metricsFilter: $metricsFilter
+      metricsSelector: $metricsSelector
+      metricsStoreType: $metricsStoreType
+    ) {
+      ... on ReportingMetrics {
+        metrics {
+          ...InsightsAssetEntryFragment
+          __typename
+        }
+        timestamps
+        __typename
+      }
+      __typename
+    }
+  }
+
+  fragment InsightsAssetEntryFragment on ReportingEntry {
+    entity {
+      ... on ReportingAsset {
+        assetKey {
+          path
+          __typename
+        }
+        assetGroup
+        codeLocationName
+        repositoryName
+        __typename
+      }
+      __typename
+    }
+    aggregateValue
+    aggregateValueChange {
+      change
+      isNewlyAvailable
+      __typename
+    }
+    values
+    __typename
+  }
+`;
+
+// Query for insights update time
+export const GET_INSIGHTS_UPDATE_TIME = gql`
+  query InsightsUpdateTimeQuery {
+    reportingMetadata {
+      latestDataTimestamp
+      __typename
+    }
+  }
+`;
+
 // Query to check if a job has partition sets
 export const GET_PARTITION_SETS = gql`
   query PartitionSetsForJob($repositorySelector: RepositorySelector!, $pipelineName: String!) {

@@ -159,24 +159,26 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
             <Card style={[styles.card, { marginTop: 4 }]}>
         <Card.Content>
           <View style={styles.overviewHeader}>
-          <Title>Overview</Title>
-                      <View style={styles.headerButtons}>
-            {hasConfiguredSettings && (
-              <Button 
-                mode="outlined" 
-                onPress={() => setShowDeploymentSelector(true)}
-                style={styles.deploymentButton}
-              >
-                {currentDeployment}
-              </Button>
-            )}
+          <View style={styles.titleRow}>
+            <Title style={styles.overviewTitle}>Overview</Title>
             <IconButton
               icon="cog"
-              size={24}
+              size={20}
               onPress={() => navigation.navigate('Settings')}
               style={styles.settingsButton}
             />
           </View>
+                      {hasConfiguredSettings && (
+              <Button 
+                mode="outlined" 
+                onPress={() => setShowDeploymentSelector(true)}
+                style={styles.deploymentButton}
+                compact
+                labelStyle={styles.deploymentButtonLabel}
+              >
+                {currentDeployment}
+              </Button>
+            )}
         </View>
         {!hasConfiguredSettings && !isCheckingSettings && (
           <View style={styles.errorContainer}>
@@ -247,15 +249,19 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
               <Card style={styles.card}>
                 <Card.Content>
                   <View style={styles.runHeader}>
-                    <Text style={styles.runName}>{run.pipelineName}</Text>
+                    <Text style={styles.runName} numberOfLines={1} ellipsizeMode="tail">{run.pipelineName}</Text>
+                  </View>
+                  <View style={styles.runDetailsRow}>
+                    <View style={styles.runDetailsContainer}>
+                      <Text style={[styles.runId, { color: theme.colors.onSurfaceVariant }]}>Run ID: {run.runId}</Text>
+                      {run.startTime && (
+                        <Text style={[styles.runTime, { color: theme.colors.onSurfaceVariant }]}>Started: {formatDagsterDate(run.startTime)} {formatDagsterTime(run.startTime)}</Text>
+                      )}
+                    </View>
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(run.status) }]}>
                       <Text style={styles.statusText}>{run.status}</Text>
                     </View>
                   </View>
-                  <Text style={[styles.runId, { color: theme.colors.onSurfaceVariant }]}>Run ID: {run.runId}</Text>
-                  {run.startTime && (
-                    <Text style={[styles.runTime, { color: theme.colors.onSurfaceVariant }]}>Started: {formatDagsterDate(run.startTime)} {formatDagsterTime(run.startTime)}</Text>
-                  )}
                 </Card.Content>
               </Card>
             </TouchableOpacity>
@@ -281,7 +287,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
               <Card style={styles.card}>
                 <Card.Content>
                   <View style={styles.jobHeader}>
-                    <Text style={styles.jobName}>{pipeline.name}</Text>
+                    <Text style={styles.jobName} numberOfLines={1} ellipsizeMode="tail">{pipeline.name}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(pipeline.status) }]}>
                       <Text style={styles.statusText}>{pipeline.status}</Text>
                     </View>
@@ -313,20 +319,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overviewHeader: {
+    marginBottom: 12,
+  },
+  titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  deploymentButton: {
-    marginRight: 8,
+  overviewTitle: {
+    fontSize: 20,
+    marginBottom: 0,
   },
   settingsButton: {
     margin: 0,
+  },
+  deploymentButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  deploymentButtonLabel: {
+    fontSize: 12,
   },
   loadingContainer: {
     flex: 1,
@@ -342,7 +355,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 16,
+    marginTop: 8,
   },
   statItem: {
     alignItems: 'center',
@@ -363,13 +376,22 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
   },
   runHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: 8,
   },
   runName: {
     fontSize: 16,
     fontWeight: 'bold',
+    flexShrink: 1,
+  },
+  runDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  runDetailsContainer: {
+    flex: 1,
+    marginRight: 12,
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -383,7 +405,6 @@ const styles = StyleSheet.create({
   },
   runId: {
     fontSize: 12,
-    marginTop: 4,
   },
   runTime: {
     fontSize: 12,
@@ -399,6 +420,8 @@ const styles = StyleSheet.create({
   jobName: {
     fontSize: 16,
     fontWeight: 'bold',
+    flex: 1,
+    marginRight: 8,
   },
   jobStatus: {
     fontSize: 12,

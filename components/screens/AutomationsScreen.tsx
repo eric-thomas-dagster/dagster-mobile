@@ -404,7 +404,7 @@ const AutomationsScreen: React.FC<AutomationsScreenProps> = ({ navigation, route
                         ) : (
                           <ScheduleIcon color={theme.colors.onSurface} size={20} />
                         )}
-                        <Title style={styles.itemName}>{automation.name}</Title>
+                        <Title style={styles.itemName} numberOfLines={1} ellipsizeMode="tail">{automation.name}</Title>
                       </View>
                       <Switch
                         value={automation.status === 'RUNNING'}
@@ -486,10 +486,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    marginRight: 12,
   },
   itemName: {
     fontSize: 16,
     marginLeft: 8,
+    flexShrink: 1,
   },
   itemDescription: {
     fontSize: 14,

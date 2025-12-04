@@ -23,11 +23,7 @@
         "foregroundImage": "./assets/dagster-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.dagster.mobile",
-      "targetSdkVersion": 35,
-      "minSdkVersion": 16,
-      "enableProguardInReleaseBuilds": true,
-      "enableSeparateBuildPerCPUArchitecture": true
+      "package": "com.dagster.mobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"

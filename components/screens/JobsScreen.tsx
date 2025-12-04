@@ -403,7 +403,7 @@ const JobsScreen: React.FC<JobsScreenProps> = ({ navigation, route }) => {
                       <View style={styles.jobHeader}>
                         <View style={styles.jobNameContainer}>
                           <JobIcon color={theme.colors.onSurface} size={16} />
-                          <Title style={styles.jobName}>{job.name}</Title>
+                          <Title style={styles.jobName} numberOfLines={1} ellipsizeMode="tail">{job.name}</Title>
                         </View>
                       </View>
                       <View style={styles.jobDetailsRow}>
@@ -500,6 +500,7 @@ const styles = StyleSheet.create({
   },
   jobName: {
     fontSize: 16,
+    flexShrink: 1,
   },
   jobStatusContainer: {
     flexDirection: 'row',
