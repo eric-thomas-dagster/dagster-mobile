@@ -68,6 +68,8 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
         return 'Asset Success';
       case 'ANY_JOB_FAILURE':
         return 'Any Job Failure';
+      case 'ANY_JOB_SUCCESS':
+        return 'Any Job Success';
       case 'ASSET_CHECK_ERROR':
         return 'Asset Check Error';
       default:
@@ -84,6 +86,7 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
         return '#f44336';
       case 'JOB_SUCCESS':
       case 'ASSET_SUCCESS':
+      case 'ANY_JOB_SUCCESS':
         return '#4caf50';
       default:
         return theme.colors.primary;
@@ -102,7 +105,7 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
               <Chip
                 mode="flat"
                 style={[styles.typeChip, { backgroundColor: getAlertTypeColor(item.type) + '20' }]}
-                textStyle={{ color: getAlertTypeColor(item.type), fontSize: 12 }}
+                textStyle={{ color: getAlertTypeColor(item.type), fontSize: 13, fontWeight: '500' }}
               >
                 {getAlertTypeLabel(item.type)}
               </Chip>
@@ -206,8 +209,8 @@ const styles = StyleSheet.create({
   },
   typeChip: {
     alignSelf: 'flex-start',
-    height: 28,
-    paddingHorizontal: 8,
+    height: 32,
+    paddingHorizontal: 12,
   },
   alertActions: {
     flexDirection: 'row',

@@ -4,6 +4,7 @@ export type AlertType =
   | 'ASSET_FAILURE'
   | 'ASSET_SUCCESS'
   | 'ANY_JOB_FAILURE'
+  | 'ANY_JOB_SUCCESS'
   | 'ASSET_CHECK_ERROR';
 
 export interface AlertRule {

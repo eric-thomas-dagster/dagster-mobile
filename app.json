@@ -16,14 +16,50 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dagster.mobile"
+      "bundleIdentifier": "com.dagster.mobile",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Dagster+ Mobile uses Face ID to securely authenticate and protect your API credentials."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/dagster-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.dagster.mobile"
+      "package": "com.dagster.mobile",
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "*.dagster.cloud",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "dagster.cloud",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "http",
+              "host": "*.dagster.cloud",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "http",
+              "host": "dagster.cloud",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,6 +68,14 @@
       "eas": {
         "projectId": "3d630964-b73b-445f-af52-58a8e2a65b3b"
       }
-    }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "scheme": "dagster-mobile",
+    "associatedDomains": [
+      "applinks:*.dagster.cloud",
+      "applinks:dagster.cloud"
+    ]
   }
 }

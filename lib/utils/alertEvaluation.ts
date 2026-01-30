@@ -21,6 +21,9 @@ export const evaluateAlert = async (
       case 'ANY_JOB_FAILURE':
         return await evaluateAnyJobFailure(apolloClient, sinceTimestamp);
 
+      case 'ANY_JOB_SUCCESS':
+        return await evaluateAnyJobSuccess(apolloClient, sinceTimestamp);
+
       case 'ASSET_FAILURE':
         return await evaluateAssetFailure(alert, apolloClient, sinceTimestamp);
 
@@ -157,6 +160,43 @@ const evaluateAnyJobFailure = async (
   }
 
   return { shouldTrigger: false, message: 'No failures detected' };
+};
+
+/**
+ * Check if any job has succeeded
+ */
+const evaluateAnyJobSuccess = async (
+  apolloClient: ApolloClient<any>,
+  sinceTimestamp: number
+): Promise<AlertEvaluationResult> => {
+  const { data } = await apolloClient.query({
+    query: GET_RUNS,
+    variables: { limit: 50 },
+    fetchPolicy: 'network-only',
+  });
+
+  if (!data?.runsOrError?.results) {
+    return { shouldTrigger: false, message: 'No runs found' };
+  }
+
+  const runs = data.runsOrError.results;
+
+  const successRuns = runs.filter((run: any) => {
+    const isSuccess = run.status === 'SUCCESS';
+    const isRecent = run.startTime ? parseFloat(run.startTime) >= sinceTimestamp / 1000 : false;
+    return isSuccess && isRecent;
+  });
+
+  if (successRuns.length > 0) {
+    const latestSuccess = successRuns[0];
+    return {
+      shouldTrigger: true,
+      runId: latestSuccess.id,
+      message: `Job "${latestSuccess.pipelineName}" completed successfully`,
+    };
+  }
+
+  return { shouldTrigger: false, message: 'No successes detected' };
 };
 
 /**

@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet, Alert } from 'react-native';
-import { TextInput, Button, SegmentedButtons, Text, Card, Chip } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { TextInput, Button, SegmentedButtons, Text, Card, Chip, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeProvider';
 import { AlertRule, AlertType } from '../../lib/types/alerts';
@@ -17,6 +17,7 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
   const [name, setName] = React.useState('');
   const [alertType, setAlertType] = React.useState<AlertType>('JOB_FAILURE');
   const [saving, setSaving] = React.useState(false);
+  const [showInfo, setShowInfo] = React.useState(false);
 
   // Pre-fill from route params if navigated from detail screen
   const { targetId, targetName, suggestedType } = route.params || {};
@@ -50,6 +51,8 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
         return 'Asset Success';
       case 'ANY_JOB_FAILURE':
         return 'Any Job Failure';
+      case 'ANY_JOB_SUCCESS':
+        return 'Any Job Success';
       case 'ASSET_CHECK_ERROR':
         return 'Asset Check Error';
       default:
@@ -64,7 +67,7 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
     }
 
     // Check if alert type requires a target
-    const requiresTarget = alertType !== 'ANY_JOB_FAILURE';
+    const requiresTarget = alertType !== 'ANY_JOB_FAILURE' && alertType !== 'ANY_JOB_SUCCESS';
     if (requiresTarget && !targetId) {
       Alert.alert('Error', 'Please select a target for this alert type');
       return;
@@ -111,6 +114,40 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['bottom']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        {/* Info banner about mobile-only alerts */}
+        <Card style={[styles.infoCard, { backgroundColor: theme.colors.secondaryContainer }]}>
+          <Card.Content>
+            <View style={styles.infoHeader}>
+              <IconButton
+                icon="information"
+                size={20}
+                iconColor={theme.colors.onSecondaryContainer}
+                style={{ margin: 0, padding: 0 }}
+              />
+              <Text style={[styles.infoTitle, { color: theme.colors.onSecondaryContainer }]}>
+                Mobile App Alerts
+              </Text>
+            </View>
+            <Text style={[styles.infoText, { color: theme.colors.onSecondaryContainer }]}>
+              These alerts are local to your mobile device and check every 15 minutes. They are not real-time and won't appear in Dagster+ web UI.
+            </Text>
+            {showInfo && (
+              <Text style={[styles.infoDetails, { color: theme.colors.onSecondaryContainer }]}>
+                {'\n'}Limitations:{'\n'}
+                • Polling every 15 minutes (not real-time){'\n'}
+                • Local to this device only{'\n'}
+                • Requires app to be installed{'\n'}
+                • Background fetch may vary by OS
+              </Text>
+            )}
+            <TouchableOpacity onPress={() => setShowInfo(!showInfo)}>
+              <Text style={[styles.learnMore, { color: theme.colors.primary }]}>
+                {showInfo ? 'Show less ↑' : 'Learn more →'}
+              </Text>
+            </TouchableOpacity>
+          </Card.Content>
+        </Card>
+
         <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content>
             <Text style={[styles.label, { color: theme.colors.onSurface }]}>
@@ -167,13 +204,22 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
               )}
               {/* Show general alert types when no target */}
               {!targetId && (
-                <Button
-                  mode={alertType === 'ANY_JOB_FAILURE' ? 'contained' : 'outlined'}
-                  onPress={() => setAlertType('ANY_JOB_FAILURE')}
-                  style={styles.typeButton}
-                >
-                  Any Job Failure
-                </Button>
+                <>
+                  <Button
+                    mode={alertType === 'ANY_JOB_FAILURE' ? 'contained' : 'outlined'}
+                    onPress={() => setAlertType('ANY_JOB_FAILURE')}
+                    style={styles.typeButton}
+                  >
+                    Any Job Failure
+                  </Button>
+                  <Button
+                    mode={alertType === 'ANY_JOB_SUCCESS' ? 'contained' : 'outlined'}
+                    onPress={() => setAlertType('ANY_JOB_SUCCESS')}
+                    style={styles.typeButton}
+                  >
+                    Any Job Success
+                  </Button>
+                </>
               )}
             </View>
 
@@ -223,6 +269,33 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+  },
+  infoCard: {
+    marginBottom: 16,
+    elevation: 1,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  infoText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  infoDetails: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  learnMore: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
   },
   card: {
     elevation: 2,

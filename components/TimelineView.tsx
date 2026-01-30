@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { View, ScrollView, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import { Card, Text, Chip, SegmentedButtons } from 'react-native-paper';
 import { useQuery } from '@apollo/client';
 import { GET_TIMELINE_DATA } from '../lib/graphql/queries';
@@ -12,6 +12,7 @@ const { width } = Dimensions.get('window');
 interface TimelineViewProps {
   timeRange: '1hr' | '6hr' | '12hr' | '24hr';
   onTimeRangeChange: (range: '1hr' | '6hr' | '12hr' | '24hr') => void;
+  navigation?: any;
 }
 
 interface TimelineRun {
@@ -33,7 +34,7 @@ interface GroupedRuns {
   };
 }
 
-const TimelineView: React.FC<TimelineViewProps> = ({ timeRange, onTimeRangeChange }) => {
+const TimelineView: React.FC<TimelineViewProps> = ({ timeRange, onTimeRangeChange, navigation }) => {
   const { theme } = useTheme();
   const { data, loading, error } = useQuery(GET_TIMELINE_DATA, {
     variables: { limit: 200 },
@@ -128,16 +129,38 @@ const TimelineView: React.FC<TimelineViewProps> = ({ timeRange, onTimeRangeChang
     return counts;
   };
 
+  const handlePipelinePress = (pipelineName: string, runs: TimelineRun[]) => {
+    if (!navigation) return;
+    
+    // Find the most recent run for this pipeline to use as jobId
+    const mostRecentRun = runs.reduce((latest: TimelineRun | null, current: TimelineRun) => {
+      if (!latest || !latest.startTime) return current;
+      if (!current.startTime) return latest;
+      const latestTime = parseDagsterTimestamp(latest.startTime);
+      const currentTime = parseDagsterTimestamp(current.startTime);
+      if (!latestTime || !currentTime) return latest;
+      return currentTime > latestTime ? current : latest;
+    }, null);
+    
+    if (mostRecentRun) {
+      // Navigate to Jobs tab first, then to JobDetail
+      navigation.navigate('Jobs', {
+        screen: 'JobDetail',
+        params: { jobId: mostRecentRun.id }
+      });
+    }
+  };
+
   const renderTimelineRow = (pipelineName: string, runs: TimelineRun[]) => {
     const counts = getStatusCounts(runs);
     const totalRuns = runs.length;
 
-    return (
-      <View key={pipelineName} style={[styles.timelineRow, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.outline }]}>
+    const rowContent = (
+      <>
         <View style={styles.pipelineInfo}>
           <View style={styles.pipelineNameContainer}>
             <JobIcon color={theme.colors.onSurface} size={16} />
-            <Text style={[styles.pipelineName, { color: theme.colors.onSurface }]}>{pipelineName}</Text>
+            <Text style={[styles.pipelineName, { color: theme.colors.primary }]}>{pipelineName}</Text>
           </View>
         </View>
         
@@ -181,6 +204,25 @@ const TimelineView: React.FC<TimelineViewProps> = ({ timeRange, onTimeRangeChang
             )}
           </View>
         </View>
+      </>
+    );
+
+    if (navigation) {
+      return (
+        <TouchableOpacity
+          key={pipelineName}
+          style={[styles.timelineRow, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.outline }]}
+          onPress={() => handlePipelinePress(pipelineName, runs)}
+          activeOpacity={0.7}
+        >
+          {rowContent}
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View key={pipelineName} style={[styles.timelineRow, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.outline }]}>
+        {rowContent}
       </View>
     );
   };

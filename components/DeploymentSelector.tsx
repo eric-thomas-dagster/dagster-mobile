@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, ScrollView } from 'react-native';
 import { Card, Title, Text, Button, ActivityIndicator, Chip } from 'react-native-paper';
 import { useQuery } from '@apollo/client';
 import { GET_DEPLOYMENTS } from '../lib/graphql/queries';
@@ -154,7 +154,11 @@ const DeploymentSelector: React.FC<DeploymentSelectorProps> = ({
               </View>
             </View>
           ) : (
-            <View style={styles.deploymentsList}>
+            <ScrollView 
+              style={styles.deploymentsScrollView}
+              contentContainerStyle={styles.deploymentsList}
+              showsVerticalScrollIndicator={true}
+            >
               {activeDeployments.map((deployment: DagsterCloudDeployment) => (
                 <Card
                   key={deployment.deploymentName}
@@ -184,7 +188,7 @@ const DeploymentSelector: React.FC<DeploymentSelectorProps> = ({
                   </Card.Content>
                 </Card>
               ))}
-            </View>
+            </ScrollView>
           )}
         </Card.Content>
       </Card>
@@ -250,8 +254,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
+  deploymentsScrollView: {
+    maxHeight: 400,
+  },
   deploymentsList: {
     gap: 12,
+    paddingBottom: 8,
   },
   deploymentCard: {
     marginBottom: 8,
