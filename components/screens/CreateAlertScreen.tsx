@@ -2,10 +2,13 @@ import React from 'react';
 import { View, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { TextInput, Button, SegmentedButtons, Text, Card, Chip, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../ThemeProvider';
 import { AlertRule, AlertType } from '../../lib/types/alerts';
 import { addAlert } from '../../lib/utils/alertStorage';
 import { requestNotificationPermissions } from '../../lib/utils/notificationUtils';
+
+const ALERT_INFO_DISMISSED_KEY = 'alert_info_dismissed';
 
 interface CreateAlertScreenProps {
   navigation: any;
@@ -18,9 +21,19 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
   const [alertType, setAlertType] = React.useState<AlertType>('JOB_FAILURE');
   const [saving, setSaving] = React.useState(false);
   const [showInfo, setShowInfo] = React.useState(false);
+  const [infoBannerDismissed, setInfoBannerDismissed] = React.useState(false);
 
   // Pre-fill from route params if navigated from detail screen
   const { targetId, targetName, suggestedType } = route.params || {};
+
+  // Load dismissed state
+  React.useEffect(() => {
+    const loadDismissedState = async () => {
+      const dismissed = await AsyncStorage.getItem(ALERT_INFO_DISMISSED_KEY);
+      setInfoBannerDismissed(dismissed === 'true');
+    };
+    loadDismissedState();
+  }, []);
 
   React.useEffect(() => {
     if (suggestedType) {
@@ -31,13 +44,14 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
     }
     if (targetName && !name) {
       // Auto-generate name based on type and target
-      const typeName = getAlertTypeLabel(suggestedType || 'JOB_FAILURE');
+      const typeName = getAlertTypeLabel(suggestedType || alertType);
       setName(`${typeName}: ${targetName}`);
     } else if (!targetId && !name) {
       // Default name for general alerts
-      setName('Any Job Failure Alert');
+      const typeName = getAlertTypeLabel(alertType);
+      setName(`${typeName} Alert`);
     }
-  }, [targetName, suggestedType, targetId]);
+  }, [targetName, suggestedType, targetId, alertType]);
 
   const getAlertTypeLabel = (type: string): string => {
     switch (type) {
@@ -58,6 +72,15 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
       default:
         return type;
     }
+  };
+
+  const handleDismissInfo = async () => {
+    await AsyncStorage.setItem(ALERT_INFO_DISMISSED_KEY, 'true');
+    setInfoBannerDismissed(true);
+  };
+
+  const handleShowInfo = () => {
+    setInfoBannerDismissed(false);
   };
 
   const handleSave = async () => {
@@ -115,38 +138,63 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         {/* Info banner about mobile-only alerts */}
-        <Card style={[styles.infoCard, { backgroundColor: theme.colors.secondaryContainer }]}>
-          <Card.Content>
-            <View style={styles.infoHeader}>
+        {!infoBannerDismissed ? (
+          <Card style={[styles.infoCard, { backgroundColor: theme.colors.secondaryContainer }]}>
+            <Card.Content>
+              <View style={styles.infoHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  <IconButton
+                    icon="information"
+                    size={20}
+                    iconColor={theme.colors.onSecondaryContainer}
+                    style={{ margin: 0, padding: 0 }}
+                  />
+                  <Text style={[styles.infoTitle, { color: theme.colors.onSecondaryContainer }]}>
+                    Mobile App Alerts
+                  </Text>
+                </View>
+                <IconButton
+                  icon="close"
+                  size={20}
+                  iconColor={theme.colors.onSecondaryContainer}
+                  onPress={handleDismissInfo}
+                  style={{ margin: 0, padding: 0 }}
+                />
+              </View>
+              <Text style={[styles.infoText, { color: theme.colors.onSecondaryContainer }]}>
+                These alerts are not real-time and won't appear in the Dagster+ web UI.
+              </Text>
+              {showInfo && (
+                <Text style={[styles.infoDetails, { color: theme.colors.onSecondaryContainer }]}>
+                  {'\n'}Limitations:{'\n'}
+                  • Polling every 15 minutes (not real-time){'\n'}
+                  • Local to this device only{'\n'}
+                  • Requires app to be installed{'\n'}
+                  • Background fetch may vary by OS
+                </Text>
+              )}
+              <TouchableOpacity onPress={() => setShowInfo(!showInfo)}>
+                <Text style={[styles.learnMore, { color: theme.colors.primary }]}>
+                  {showInfo ? 'Show less ↑' : 'Learn more →'}
+                </Text>
+              </TouchableOpacity>
+            </Card.Content>
+          </Card>
+        ) : (
+          <View style={styles.dismissedInfoContainer}>
+            <TouchableOpacity onPress={handleShowInfo} style={styles.infoIconButton}>
               <IconButton
-                icon="information"
+                icon="information-outline"
                 size={20}
-                iconColor={theme.colors.onSecondaryContainer}
-                style={{ margin: 0, padding: 0 }}
+                iconColor={theme.colors.primary}
+                style={{ margin: 0 }}
               />
-              <Text style={[styles.infoTitle, { color: theme.colors.onSecondaryContainer }]}>
-                Mobile App Alerts
-              </Text>
-            </View>
-            <Text style={[styles.infoText, { color: theme.colors.onSecondaryContainer }]}>
-              These alerts are not real-time and won't appear in the Dagster+ web UI.
-            </Text>
-            {showInfo && (
-              <Text style={[styles.infoDetails, { color: theme.colors.onSecondaryContainer }]}>
-                {'\n'}Limitations:{'\n'}
-                • Polling every 15 minutes (not real-time){'\n'}
-                • Local to this device only{'\n'}
-                • Requires app to be installed{'\n'}
-                • Background fetch may vary by OS
-              </Text>
-            )}
-            <TouchableOpacity onPress={() => setShowInfo(!showInfo)}>
-              <Text style={[styles.learnMore, { color: theme.colors.primary }]}>
-                {showInfo ? 'Show less ↑' : 'Learn more →'}
+              <Text style={[styles.infoIconText, { color: theme.colors.primary }]}>
+                About mobile alerts
               </Text>
             </TouchableOpacity>
-          </Card.Content>
-        </Card>
+          </View>
+        )}
 
         <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content>
@@ -277,11 +325,24 @@ const styles = StyleSheet.create({
   infoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
   },
   infoTitle: {
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  dismissedInfoContainer: {
+    marginBottom: 16,
+  },
+  infoIconButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoIconText: {
+    fontSize: 14,
+    fontWeight: '600',
     marginLeft: 4,
   },
   infoText: {
