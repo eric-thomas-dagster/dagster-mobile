@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   },
   deploymentsList: {
     gap: 12,
-    paddingBottom: 8,
+    paddingBottom: 100,
   },
   deploymentCard: {
     marginBottom: 8,
