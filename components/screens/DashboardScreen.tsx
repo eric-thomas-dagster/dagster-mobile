@@ -7,7 +7,6 @@ import { GET_RUNS, GET_JOBS, GET_ASSETS } from '../../lib/graphql/queries';
 import { RepositorySelector, DagsterCloudDeployment } from '../../lib/types/dagster';
 import { mockRuns, mockPipelines, mockAssets } from '../../lib/mock-data';
 import DeploymentSelector from '../DeploymentSelector';
-import ShareUrlHandler from '../ShareUrlHandler';
 import { updateApolloClientUrl } from '../../lib/apollo-client';
 import { formatDagsterDate, formatDagsterTime } from '../../lib/utils/dateUtils';
 import { useTheme } from '../ThemeProvider';
@@ -22,7 +21,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
   const [refreshing, setRefreshing] = React.useState(false);
   const [showDeploymentSelector, setShowDeploymentSelector] = React.useState(false);
-  const [showShareHandler, setShowShareHandler] = React.useState(false);
   const [currentDeployment, setCurrentDeployment] = React.useState('data-eng-prod');
   const [hasConfiguredSettings, setHasConfiguredSettings] = React.useState(false);
   const [isCheckingSettings, setIsCheckingSettings] = React.useState(true);
@@ -119,19 +117,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
     });
   };
 
-  const handleUrlOpened = (url: string) => {
-    const { parseDagsterUrl, getNavigationParams } = require('../../lib/utils/deepLinkUtils');
-    const parsed = parseDagsterUrl(url);
-    const navParams = getNavigationParams(parsed);
-
-    if (navParams) {
-      navigation.navigate(navParams.tab, {
-        screen: navParams.screen,
-        params: navParams.params,
-      });
-    }
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'SUCCESS':
@@ -193,12 +178,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
           <View style={styles.titleRow}>
             <Title style={styles.overviewTitle}>Overview</Title>
             <View style={styles.headerButtons}>
-              <IconButton
-                icon="share-variant"
-                size={20}
-                onPress={() => setShowShareHandler(true)}
-                style={styles.shareButton}
-              />
               <IconButton
                 icon="cog"
                 size={20}
@@ -346,15 +325,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
             onClose={() => setShowDeploymentSelector(false)}
           />
         )}
-
-        {showShareHandler && (
-          <View style={styles.shareHandlerOverlay}>
-            <ShareUrlHandler
-              onUrlHandled={handleUrlOpened}
-              onClose={() => setShowShareHandler(false)}
-            />
-          </View>
-        )}
       </SafeAreaView>
   );
 };
@@ -382,9 +352,6 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  shareButton: {
-    margin: 0,
   },
   settingsButton: {
     margin: 0,
@@ -532,17 +499,6 @@ const styles = StyleSheet.create({
   },
   configureButton: {
     marginTop: 8,
-  },
-  shareHandlerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
   },
 });
 
