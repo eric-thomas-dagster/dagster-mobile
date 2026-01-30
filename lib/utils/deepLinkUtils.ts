@@ -1,18 +1,19 @@
 /**
  * Deep linking utilities for handling Dagster+ URLs
- * 
- * URL patterns:
- * - Sensor: https://[org].dagster.cloud/[deployment]/workspace/[workspace]/sensors/[sensor_name]
- * - Schedule: https://[org].dagster.cloud/[deployment]/workspace/[workspace]/schedules/[schedule_name]
- * - Job: https://[org].dagster.cloud/[deployment]/workspace/[workspace]/jobs/[job_name]
- * - Asset: https://[org].dagster.cloud/[deployment]/workspace/[workspace]/assets/[asset_path]
- * - Run: https://[org].dagster.cloud/[deployment]/workspace/[workspace]/runs/[run_id]
+ *
+ * Standard URL format: https://[org].dagster.cloud/[deployment]/[type]/[identifier]
+ *
+ * Examples:
+ * - Run: https://hooli.dagster.cloud/data-eng-prod/runs/082e599d-979a-42da-9942-7b45b6254952
+ * - Job: https://hooli.dagster.cloud/data-eng-prod/jobs/my_job
+ * - Asset: https://hooli.dagster.cloud/data-eng-prod/assets/path/to/asset
+ * - Sensor: https://hooli.dagster.cloud/data-eng-prod/sensors/my_sensor
+ * - Schedule: https://hooli.dagster.cloud/data-eng-prod/schedules/my_schedule
  */
 
 export interface ParsedDagsterUrl {
   organization?: string;
   deployment?: string;
-  workspace?: string;
   type: 'sensor' | 'schedule' | 'job' | 'asset' | 'run' | 'unknown';
   name?: string;
   path?: string[];
@@ -22,113 +23,60 @@ export interface ParsedDagsterUrl {
 
 /**
  * Parse a Dagster+ URL into its components
- * 
- * Supports two URL formats:
- * 1. https://[org].dagster.cloud/[deployment]/workspace/[workspace]/[type]/[name]
- * 2. https://dagster.cloud/[org]/[deployment]/workspace/[workspace]/[type]/[name]
+ *
+ * Standard format: https://[org].dagster.cloud/[deployment]/[type]/[identifier]
  */
 export const parseDagsterUrl = (url: string): ParsedDagsterUrl => {
   try {
     // Remove any trailing slashes and normalize
     const normalizedUrl = url.trim().replace(/\/$/, '');
-    
-    // Pattern 1: https://[org].dagster.cloud/[deployment]/workspace/[workspace]/[type]/[name]
-    // Example: https://hooli.dagster.cloud/data-eng-prod/workspace/__repository__@hooli_airlift/sensors/sensor_name
-    const subdomainPattern = /https?:\/\/([^\/]+)\.dagster\.cloud\/([^\/]+)\/workspace\/([^\/]+)\/(sensors|schedules|jobs|assets|runs)\/(.+)/;
-    let match = normalizedUrl.match(subdomainPattern);
-    
-    let organization: string | undefined;
-    let deployment: string | undefined;
-    let workspace: string | undefined;
-    let type: string | undefined;
-    let nameOrPath: string | undefined;
-    
-    if (match) {
-      // Subdomain format: org.dagster.cloud
-      [, organization, deployment, workspace, type, nameOrPath] = match;
-    } else {
-      // Pattern 1b: https://[org].dagster.cloud/[deployment]/[type]/[name] (subdomain, no workspace)
-      // Example: https://hooli.dagster.cloud/data-eng-prod/runs/082e599d-979a-42da-9942-7b45b6254952
-      const subdomainNoWorkspacePattern = /https?:\/\/([^\/]+)\.dagster\.cloud\/([^\/]+)\/(sensors|schedules|jobs|assets|runs)\/(.+)/;
-      match = normalizedUrl.match(subdomainNoWorkspacePattern);
 
-      if (match) {
-        // Subdomain format without workspace
-        [, organization, deployment, type, nameOrPath] = match;
-        workspace = '__repository__'; // Default workspace
-      } else {
-        // Pattern 2: https://dagster.cloud/[org]/[deployment]/workspace/[workspace]/[type]/[name]
-        // Example: https://dagster.cloud/hooli/data-eng-prod/workspace/__repository__@hooli_airlift/sensors/sensor_name
-        const directPattern = /https?:\/\/dagster\.cloud\/([^\/]+)\/([^\/]+)\/workspace\/([^\/]+)\/(sensors|schedules|jobs|assets|runs)\/(.+)/;
-        match = normalizedUrl.match(directPattern);
+    // Standard pattern: https://[org].dagster.cloud/[deployment]/[type]/[identifier]
+    // Example: https://hooli.dagster.cloud/data-eng-prod/runs/082e599d-979a-42da-9942-7b45b6254952
+    const pattern = /https?:\/\/([^.]+)\.dagster\.cloud\/([^/]+)\/(sensors|schedules|jobs|assets|runs)\/(.+)/;
+    const match = normalizedUrl.match(pattern);
 
-        if (match) {
-          // Direct format: dagster.cloud/org/deployment
-          [, organization, deployment, workspace, type, nameOrPath] = match;
-        } else {
-          // Pattern 3: https://dagster.cloud/[org]/[deployment]/[type]/[name] (without workspace)
-          // Example: https://dagster.cloud/hooli/data-eng-prod/sensors/sensor_name
-          const noWorkspacePattern = /https?:\/\/dagster\.cloud\/([^\/]+)\/([^\/]+)\/(sensors|schedules|jobs|assets|runs)\/(.+)/;
-          match = normalizedUrl.match(noWorkspacePattern);
-
-          if (match) {
-            // Format: dagster.cloud/org/deployment/type/name (no workspace)
-            [, organization, deployment, type, nameOrPath] = match;
-            workspace = '__repository__'; // Default workspace
-          } else {
-            return { type: 'unknown', valid: false };
-          }
-        }
-      }
-    }
-    
-    if (!match || !organization || !deployment || !workspace || !type || !nameOrPath) {
+    if (!match) {
       return { type: 'unknown', valid: false };
     }
+
+    const [, organization, deployment, type, nameOrPath] = match;
     
-    // Handle workspace format: __repository__@location_name
-    const workspaceParts = workspace.split('@');
-    const repositoryName = workspaceParts[0];
-    const locationName = workspaceParts[1] || '';
-    
-    // Determine the type
+    // Map URL type to parsed type
     let parsedType: ParsedDagsterUrl['type'] = 'unknown';
     if (type === 'sensors') parsedType = 'sensor';
     else if (type === 'schedules') parsedType = 'schedule';
     else if (type === 'jobs') parsedType = 'job';
     else if (type === 'assets') parsedType = 'asset';
     else if (type === 'runs') parsedType = 'run';
-    
-    // For assets, the name might be a path (e.g., "path/to/asset")
+
+    // For assets, the identifier might be a path (e.g., "path/to/asset")
     if (parsedType === 'asset') {
       const path = nameOrPath.split('/').filter(Boolean);
       return {
         organization,
         deployment,
-        workspace: repositoryName,
         type: parsedType,
         path,
         valid: true,
       };
     }
-    
-    // For runs, the name is the run ID
+
+    // For runs, the identifier is the run ID
     if (parsedType === 'run') {
       return {
         organization,
         deployment,
-        workspace: repositoryName,
         type: parsedType,
         runId: nameOrPath,
         valid: true,
       };
     }
-    
-    // For sensors, schedules, and jobs, the name is the identifier
+
+    // For sensors, schedules, and jobs, the identifier is the name
     return {
       organization,
       deployment,
-      workspace: repositoryName,
       type: parsedType,
       name: nameOrPath,
       valid: true,
@@ -149,29 +97,22 @@ export const getNavigationParams = (parsed: ParsedDagsterUrl) => {
     case 'sensor':
     case 'schedule':
       // Navigate to Automation tab, then to detail screen
-      // Note: AutomationDetailScreen expects an automation object, but we'll pass the name
-      // and let the screen handle finding it
       return {
         tab: 'Automation',
         screen: 'AutomationDetail',
         params: {
           automationName: parsed.name,
           automationType: parsed.type,
-          repositoryLocationName: parsed.workspace?.split('@')[1] || '',
-          repositoryName: parsed.workspace || '__repository__',
         },
       };
-    
+
     case 'job':
       // Navigate to Jobs tab, then to detail screen
-      // We'll pass the job name and let the screen find the job ID
       return {
         tab: 'Jobs',
         screen: 'JobDetail',
         params: {
           jobName: parsed.name,
-          repositoryLocationName: parsed.workspace?.split('@')[1] || '',
-          repositoryName: parsed.workspace || '__repository__',
         },
       };
     
