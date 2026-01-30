@@ -129,7 +129,7 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
               </Text>
             </View>
             <Text style={[styles.infoText, { color: theme.colors.onSecondaryContainer }]}>
-              These alerts are local to your mobile device and check every 15 minutes. They are not real-time and won't appear in Dagster+ web UI.
+              These alerts are not real-time and won't appear in the Dagster+ web UI.
             </Text>
             {showInfo && (
               <Text style={[styles.infoDetails, { color: theme.colors.onSecondaryContainer }]}>
