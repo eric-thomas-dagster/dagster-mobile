@@ -676,7 +676,7 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
           >
             <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
-                <View style={styles.modalHeader}>
+                <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outlineVariant }]}>
                   <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>
                     Select Health Status
                   </Text>
@@ -703,6 +703,7 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
                       }}
                       style={[
                         styles.modalItem,
+                        { borderBottomColor: theme.colors.outlineVariant },
                         healthFilter === item.value && { backgroundColor: theme.colors.primaryContainer }
                       ]}
                     >
@@ -729,7 +730,7 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
           >
             <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
-                <View style={styles.modalHeader}>
+                <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outlineVariant }]}>
                   <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>
                     Select View
                   </Text>
@@ -758,6 +759,7 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
                       }}
                       style={[
                         styles.modalItem,
+                        { borderBottomColor: theme.colors.outlineVariant },
                         selectedView === item.id && { backgroundColor: theme.colors.primaryContainer }
                       ]}
                     >
@@ -835,7 +837,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   modalTitle: {
     fontSize: 18,
@@ -851,7 +852,6 @@ const styles = StyleSheet.create({
   modalItem: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   modalItemText: {
     fontSize: 16,
