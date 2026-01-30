@@ -2,10 +2,10 @@
   "expo": {
     "name": "Dagster+ Mobile",
     "slug": "dagster-mobile",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/dagster-icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -31,6 +31,11 @@
         "USE_BIOMETRIC",
         "USE_FINGERPRINT"
       ],
+      "navigationBar": {
+        "visible": true,
+        "barStyle": "dark-content",
+        "backgroundColor": "#FFFFFF"
+      },
       "intentFilters": [
         {
           "action": "VIEW",
