@@ -797,7 +797,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 8,
+    paddingHorizontal: 8,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   searchBar: {
     marginBottom: 8,

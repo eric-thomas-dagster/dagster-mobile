@@ -102,7 +102,7 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
               <Chip
                 mode="flat"
                 style={[styles.typeChip, { backgroundColor: getAlertTypeColor(item.type) + '20' }]}
-                textStyle={{ color: getAlertTypeColor(item.type), fontSize: 11 }}
+                textStyle={{ color: getAlertTypeColor(item.type), fontSize: 12 }}
               >
                 {getAlertTypeLabel(item.type)}
               </Chip>
@@ -168,6 +168,7 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
       <FAB
         icon="plus"
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+        color="#ffffff"
         onPress={() => navigation.navigate('CreateAlert')}
         label="Create Alert"
       />
@@ -180,7 +181,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: 100,
   },
   card: {
@@ -204,7 +206,8 @@ const styles = StyleSheet.create({
   },
   typeChip: {
     alignSelf: 'flex-start',
-    height: 24,
+    height: 28,
+    paddingHorizontal: 8,
   },
   alertActions: {
     flexDirection: 'row',

@@ -24,13 +24,19 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
   React.useEffect(() => {
     if (suggestedType) {
       setAlertType(suggestedType);
+    } else if (!targetId) {
+      // Default to ANY_JOB_FAILURE when no target
+      setAlertType('ANY_JOB_FAILURE');
     }
     if (targetName && !name) {
       // Auto-generate name based on type and target
       const typeName = getAlertTypeLabel(suggestedType || 'JOB_FAILURE');
       setName(`${typeName}: ${targetName}`);
+    } else if (!targetId && !name) {
+      // Default name for general alerts
+      setName('Any Job Failure Alert');
     }
-  }, [targetName, suggestedType]);
+  }, [targetName, suggestedType, targetId]);
 
   const getAlertTypeLabel = (type: string): string => {
     switch (type) {
@@ -122,34 +128,53 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
               Alert Type
             </Text>
             <View style={styles.typeButtons}>
-              <Button
-                mode={alertType === 'JOB_FAILURE' ? 'contained' : 'outlined'}
-                onPress={() => setAlertType('JOB_FAILURE')}
-                style={styles.typeButton}
-              >
-                Job Failure
-              </Button>
-              <Button
-                mode={alertType === 'JOB_SUCCESS' ? 'contained' : 'outlined'}
-                onPress={() => setAlertType('JOB_SUCCESS')}
-                style={styles.typeButton}
-              >
-                Job Success
-              </Button>
-              <Button
-                mode={alertType === 'ANY_JOB_FAILURE' ? 'contained' : 'outlined'}
-                onPress={() => setAlertType('ANY_JOB_FAILURE')}
-                style={styles.typeButton}
-              >
-                Any Job Failure
-              </Button>
-              <Button
-                mode={alertType === 'ASSET_FAILURE' ? 'contained' : 'outlined'}
-                onPress={() => setAlertType('ASSET_FAILURE')}
-                style={styles.typeButton}
-              >
-                Asset Failure
-              </Button>
+              {/* Show specific alert types only if we have a target */}
+              {targetId && suggestedType === 'JOB_FAILURE' && (
+                <>
+                  <Button
+                    mode={alertType === 'JOB_FAILURE' ? 'contained' : 'outlined'}
+                    onPress={() => setAlertType('JOB_FAILURE')}
+                    style={styles.typeButton}
+                  >
+                    Job Failure
+                  </Button>
+                  <Button
+                    mode={alertType === 'JOB_SUCCESS' ? 'contained' : 'outlined'}
+                    onPress={() => setAlertType('JOB_SUCCESS')}
+                    style={styles.typeButton}
+                  >
+                    Job Success
+                  </Button>
+                </>
+              )}
+              {targetId && suggestedType === 'ASSET_FAILURE' && (
+                <>
+                  <Button
+                    mode={alertType === 'ASSET_FAILURE' ? 'contained' : 'outlined'}
+                    onPress={() => setAlertType('ASSET_FAILURE')}
+                    style={styles.typeButton}
+                  >
+                    Asset Failure
+                  </Button>
+                  <Button
+                    mode={alertType === 'ASSET_SUCCESS' ? 'contained' : 'outlined'}
+                    onPress={() => setAlertType('ASSET_SUCCESS')}
+                    style={styles.typeButton}
+                  >
+                    Asset Success
+                  </Button>
+                </>
+              )}
+              {/* Show general alert types when no target */}
+              {!targetId && (
+                <Button
+                  mode={alertType === 'ANY_JOB_FAILURE' ? 'contained' : 'outlined'}
+                  onPress={() => setAlertType('ANY_JOB_FAILURE')}
+                  style={styles.typeButton}
+                >
+                  Any Job Failure
+                </Button>
+              )}
             </View>
 
             {targetName && (
@@ -161,12 +186,6 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
                   {targetName}
                 </Chip>
               </View>
-            )}
-
-            {!targetId && alertType !== 'ANY_JOB_FAILURE' && (
-              <Text style={[styles.helperText, { color: theme.colors.error }]}>
-                Navigate to a specific job or asset to create an alert for it
-              </Text>
             )}
           </Card.Content>
         </Card>
