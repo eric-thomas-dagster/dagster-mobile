@@ -256,7 +256,7 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
           >
             <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
-                <View style={styles.modalHeader}>
+                <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outlineVariant }]}>
                   <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>Select Level</Text>
                   <TouchableOpacity onPress={() => setLevelMenuVisible(false)}>
                     <Text style={[styles.closeButton, { color: theme.colors.onSurface }]}>✕</Text>
@@ -266,7 +266,7 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
                   {allLevels.map(level => (
                     <TouchableOpacity
                       key={level}
-                      style={styles.modalItem}
+                      style={[styles.modalItem, { borderBottomColor: theme.colors.outlineVariant }]}
                       onPress={() => {
                         setSelectedLevel(level);
                         setLevelMenuVisible(false);
@@ -297,7 +297,7 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
           >
             <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
-                <View style={styles.modalHeader}>
+                <View style={[styles.modalHeader, { borderBottomColor: theme.colors.outlineVariant }]}>
                   <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>Select Type</Text>
                   <TouchableOpacity onPress={() => setTypeMenuVisible(false)}>
                     <Text style={[styles.closeButton, { color: theme.colors.onSurface }]}>✕</Text>
@@ -307,7 +307,7 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
                   {allTypes.map(type => (
                     <TouchableOpacity
                       key={type}
-                      style={styles.modalItem}
+                      style={[styles.modalItem, { borderBottomColor: theme.colors.outlineVariant }]}
                       onPress={() => {
                         setSelectedType(type);
                         setTypeMenuVisible(false);
@@ -476,7 +476,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   modalTitle: {
     fontSize: 18,
@@ -492,7 +491,6 @@ const styles = StyleSheet.create({
   modalItem: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   modalItemText: {
     fontSize: 16,
