@@ -35,6 +35,7 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
     loadDismissedState();
   }, []);
 
+  // Set initial alert type and name based on route params
   React.useEffect(() => {
     if (suggestedType) {
       setAlertType(suggestedType);
@@ -42,16 +43,23 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
       // Default to ANY_JOB_FAILURE when no target
       setAlertType('ANY_JOB_FAILURE');
     }
-    if (targetName && !name) {
+    if (targetName) {
       // Auto-generate name based on type and target
-      const typeName = getAlertTypeLabel(suggestedType || alertType);
+      const typeName = getAlertTypeLabel(suggestedType || 'JOB_FAILURE');
       setName(`${typeName}: ${targetName}`);
-    } else if (!targetId && !name) {
+    } else if (!targetId) {
       // Default name for general alerts
+      setName('Any Job Failure Alert');
+    }
+  }, [targetName, suggestedType, targetId]);
+
+  // Update name when alert type changes (for general alerts without target)
+  React.useEffect(() => {
+    if (!targetId && name.includes('Alert')) {
       const typeName = getAlertTypeLabel(alertType);
       setName(`${typeName} Alert`);
     }
-  }, [targetName, suggestedType, targetId, alertType]);
+  }, [alertType]);
 
   const getAlertTypeLabel = (type: string): string => {
     switch (type) {
