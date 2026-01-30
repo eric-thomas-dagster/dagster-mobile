@@ -174,7 +174,11 @@ const DeploymentSelector: React.FC<DeploymentSelectorProps> = ({
                         {deployment.deploymentName}
                       </Title>
                       {currentDeployment === deployment.deploymentName && (
-                        <Chip mode="flat" style={[styles.currentChip, { backgroundColor: theme.colors.primary }]}>
+                        <Chip
+                          mode="flat"
+                          style={[styles.currentChip, { backgroundColor: theme.colors.primary }]}
+                          textStyle={{ color: '#ffffff' }}
+                        >
                           Current
                         </Chip>
                       )}
