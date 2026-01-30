@@ -4,10 +4,16 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Button } from 'react-native-paper';
-import { View, Text } from 'react-native';
+import { View, Text, AppState, AppStateStatus } from 'react-native';
+import * as Linking from 'expo-linking';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../ThemeProvider';
 import Svg, { Path } from 'react-native-svg';
 import DagsterPlusLogo from '../DagsterPlusLogo';
+import { parseDagsterUrl, getNavigationParams } from '../../lib/utils/deepLinkUtils';
+import { updateApolloClientUrl } from '../../lib/apollo-client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { checkClipboardForDagsterUrl, isDagsterUrl } from '../../lib/utils/shareUtils';
 
 import DashboardScreen from '../screens/DashboardScreen';
 import AssetsScreen from '../screens/AssetsScreen';
@@ -20,6 +26,8 @@ import JobDetailScreen from '../screens/JobDetailScreen';
 import RunDetailScreen from '../screens/RunDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import InsightsScreen from '../screens/InsightsScreen';
+import AlertsScreen from '../screens/AlertsScreen';
+import CreateAlertScreen from '../screens/CreateAlertScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -62,9 +70,9 @@ const AutomationIcon = ({ color, size }: { color: string; size: number }) => (
 );
 
 const InsightsIcon = ({ color, size }: { color: string; size: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+  <Svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
     <Path
-      d="M2.5 15.8333V17.5H17.5V15.8333H2.5ZM4.16667 12.5L5.20833 11.4583L7.5 13.75L14.7917 6.45833L15.8333 7.5L7.5 15.8333L4.16667 12.5ZM4.16667 8.33333L5.20833 7.29167L7.5 9.58333L14.7917 2.29167L15.8333 3.33333L7.5 11.6667L4.16667 8.33333Z"
+      d="M6.16699 18.3333L5.00033 17.1667L10.7503 11.3958L13.667 14.3125L17.9795 10L19.167 11.1875L13.667 16.6667L10.7503 13.75L6.16699 18.3333ZM3.33366 17.5C2.87533 17.5 2.48296 17.3368 2.15658 17.0104C1.83019 16.684 1.66699 16.2917 1.66699 15.8333V4.16667C1.66699 3.70833 1.83019 3.31597 2.15658 2.98958C2.48296 2.66319 2.87533 2.5 3.33366 2.5H15.0003C15.4587 2.5 15.851 2.66319 16.1774 2.98958C16.5038 3.31597 16.667 3.70833 16.667 4.16667V7.66667H3.33366V17.5ZM3.33366 6H15.0003V4.16667H3.33366V6Z"
       fill={color}
     />
   </Svg>
@@ -107,19 +115,19 @@ const AssetsStack = () => {
         },
       }}
     >
-    <Stack.Screen 
-      name="AssetsList" 
-      component={AssetsScreen} 
-      options={{ 
-        headerTitle: () => <HeaderWithLogo title="Catalog" />,
+    <Stack.Screen
+      name="AssetsList"
+      component={AssetsScreen}
+      options={{
+        headerTitle: 'Catalog',
         headerTitleAlign: 'left'
       }}
     />
-    <Stack.Screen 
-      name="AssetDetail" 
-      component={AssetDetailScreen} 
-      options={{ 
-        headerTitle: () => <HeaderWithLogo title="Asset Details" />,
+    <Stack.Screen
+      name="AssetDetail"
+      component={AssetDetailScreen}
+      options={{
+        headerTitle: 'Asset Details',
         headerTitleAlign: 'left'
       }}
     />
@@ -141,19 +149,19 @@ const JobsStack = () => {
         },
       }}
     >
-    <Stack.Screen 
-      name="JobsList" 
-      component={JobsScreen} 
-      options={{ 
-        headerTitle: () => <HeaderWithLogo title="Jobs" />,
+    <Stack.Screen
+      name="JobsList"
+      component={JobsScreen}
+      options={{
+        headerTitle: 'Jobs',
         headerTitleAlign: 'left'
       }}
     />
-    <Stack.Screen 
-      name="JobDetail" 
-      component={JobDetailScreen} 
-      options={{ 
-        headerTitle: () => <HeaderWithLogo title="Job Details" />,
+    <Stack.Screen
+      name="JobDetail"
+      component={JobDetailScreen}
+      options={{
+        headerTitle: 'Job Details',
         headerTitleAlign: 'left'
       }}
     />
@@ -175,19 +183,19 @@ const RunsStack = () => {
         },
       }}
     >
-    <Stack.Screen 
-      name="RunsList" 
-      component={RunsScreen} 
-      options={{ 
-        headerTitle: () => <HeaderWithLogo title="Runs" />,
+    <Stack.Screen
+      name="RunsList"
+      component={RunsScreen}
+      options={{
+        headerTitle: 'Runs',
         headerTitleAlign: 'left'
       }}
     />
-    <Stack.Screen 
-      name="RunDetail" 
-      component={RunDetailScreen} 
-      options={{ 
-        headerTitle: () => <HeaderWithLogo title="Run Details" />,
+    <Stack.Screen
+      name="RunDetail"
+      component={RunDetailScreen}
+      options={{
+        headerTitle: 'Run Details',
         headerTitleAlign: 'left'
       }}
     />
@@ -209,27 +217,27 @@ const AutomationStack = () => {
         },
       }}
     >
-          <Stack.Screen 
-      name="AutomationList" 
-      component={AutomationsScreen} 
-      options={{ 
-        headerTitle: () => <HeaderWithLogo title="Automation" />,
+          <Stack.Screen
+      name="AutomationList"
+      component={AutomationsScreen}
+      options={{
+        headerTitle: 'Automation',
         headerTitleAlign: 'left'
       }}
     />
-          <Stack.Screen 
-      name="AutomationDetail" 
-      component={AutomationDetailScreen} 
-      options={{ 
-        headerTitle: () => <HeaderWithLogo title="Automation Details" />,
+          <Stack.Screen
+      name="AutomationDetail"
+      component={AutomationDetailScreen}
+      options={{
+        headerTitle: 'Automation Details',
         headerTitleAlign: 'left'
       }}
     />
-          <Stack.Screen 
-      name="RunDetail" 
-      component={RunDetailScreen} 
-      options={{ 
-        headerTitle: () => <HeaderWithLogo title="Run Details" />,
+          <Stack.Screen
+      name="RunDetail"
+      component={RunDetailScreen}
+      options={{
+        headerTitle: 'Run Details',
         headerTitleAlign: 'left'
       }}
     />
@@ -251,11 +259,27 @@ const HomeStack = () => {
         },
       }}
     >
-    <Stack.Screen 
-      name="HomeMain" 
-      component={DashboardScreen} 
-      options={{ 
+    <Stack.Screen
+      name="HomeMain"
+      component={DashboardScreen}
+      options={{
         headerTitle: () => <DagsterPlusLogo width={120} height={30} />,
+        headerTitleAlign: 'left'
+      }}
+    />
+    <Stack.Screen
+      name="Alerts"
+      component={AlertsScreen}
+      options={{
+        headerTitle: 'Alerts',
+        headerTitleAlign: 'left'
+      }}
+    />
+    <Stack.Screen
+      name="CreateAlert"
+      component={CreateAlertScreen}
+      options={{
+        headerTitle: 'Create Alert',
         headerTitleAlign: 'left'
       }}
     />
@@ -277,11 +301,11 @@ const SettingsStack = () => {
         },
       }}
     >
-    <Stack.Screen 
-      name="SettingsMain" 
-      component={SettingsScreen} 
-      options={{ 
-        headerTitle: () => <HeaderWithLogo title="Settings" />,
+    <Stack.Screen
+      name="SettingsMain"
+      component={SettingsScreen}
+      options={{
+        headerTitle: 'Settings',
         headerTitleAlign: 'left'
       }}
     />
@@ -303,11 +327,11 @@ const InsightsStack = () => {
         },
       }}
     >
-    <Stack.Screen 
-      name="InsightsMain" 
-      component={InsightsScreen} 
-      options={{ 
-        headerTitle: () => <HeaderWithLogo title="Insights" />,
+    <Stack.Screen
+      name="InsightsMain"
+      component={InsightsScreen}
+      options={{
+        headerTitle: 'Insights',
         headerTitleAlign: 'left'
       }}
     />
@@ -387,9 +411,203 @@ interface AppNavigatorProps {
 // Main app navigator
 const AppNavigator: React.FC<AppNavigatorProps> = ({ isFirstRun = false, onFirstRunComplete }) => {
   const { theme } = useTheme();
+  const navigationRef = React.useRef<any>(null);
+  
+  // Handle deep links
+  React.useEffect(() => {
+    // Handle initial URL (if app was opened from a link)
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink(url);
+      }
+    });
+    
+    // Handle URLs while app is running
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleDeepLink(event.url);
+    });
+    
+    // Check clipboard when app comes to foreground (for "Share to App" functionality)
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        // Small delay to ensure app is fully active
+        setTimeout(async () => {
+          const clipboardUrl = await checkClipboardForDagsterUrl();
+          if (clipboardUrl) {
+            // Show a prompt to open the URL
+            // We'll handle this via a global state or navigation param
+            console.log('Found Dagster URL in clipboard:', clipboardUrl);
+            // You can add a prompt here if desired
+          }
+        }, 500);
+      }
+    };
+    
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription.remove();
+      appStateSubscription.remove();
+    };
+  }, []);
+  
+  const handleDeepLink = async (url: string) => {
+    console.log('Handling deep link:', url);
+    
+    // Use Expo's Linking.parse() to properly parse the URL
+    // This handles both custom schemes and HTTPS URLs
+    let parsedUrl;
+    try {
+      parsedUrl = Linking.parse(url);
+      console.log('Parsed URL:', parsedUrl);
+    } catch (error) {
+      console.error('Error parsing URL with Linking.parse():', error);
+      // Fallback to manual parsing
+      parsedUrl = null;
+    }
+    
+    // Handle custom URL scheme that might contain the full URL
+    // Format: dagster-mobile://https://... or dagster-mobile://[path]
+    let processedUrl = url;
+    if (url.startsWith('dagster-mobile://')) {
+      const schemeRemoved = url.replace('dagster-mobile://', '');
+      // If it starts with http, use it directly
+      if (schemeRemoved.startsWith('http')) {
+        processedUrl = schemeRemoved;
+      } else if (parsedUrl?.hostname && parsedUrl.hostname.includes('dagster.cloud')) {
+        // If Linking.parse() found a hostname, reconstruct the URL
+        processedUrl = `https://${parsedUrl.hostname}${parsedUrl.path || ''}${parsedUrl.queryParams ? '?' + new URLSearchParams(parsedUrl.queryParams as any).toString() : ''}`;
+      } else {
+        // Otherwise, it's a custom path format - try to parse it as a full URL if it looks like one
+        console.log('Custom scheme path format:', schemeRemoved);
+        if (schemeRemoved.includes('dagster.cloud')) {
+          processedUrl = schemeRemoved.startsWith('http') ? schemeRemoved : `https://${schemeRemoved}`;
+        }
+      }
+    } else if (parsedUrl && parsedUrl.hostname && parsedUrl.hostname.includes('dagster.cloud')) {
+      // If it's already an HTTPS URL, use it directly
+      processedUrl = url;
+    }
+    
+    // Parse the Dagster URL
+    const parsed = parseDagsterUrl(processedUrl);
+    if (!parsed.valid) {
+      console.warn('Invalid Dagster URL:', processedUrl);
+      return;
+    }
+    
+    // Check if we need to switch deployment
+    if (parsed.organization && parsed.deployment) {
+      try {
+        // Get current deployment from storage
+        const currentBaseUrl = await AsyncStorage.getItem('dagster_api_url');
+        const currentOrg = currentBaseUrl?.match(/https?:\/\/([^\.]+)\.dagster\.cloud/)?.[1];
+        const currentDeployment = currentBaseUrl?.match(/https?:\/\/[^\/]+\/([^\/]+)\//)?.[1];
+        
+        // If deployment is different, update Apollo client
+        if (currentOrg !== parsed.organization || currentDeployment !== parsed.deployment) {
+          console.log('Switching deployment:', {
+            from: `${currentOrg}/${currentDeployment}`,
+            to: `${parsed.organization}/${parsed.deployment}`,
+          });
+          
+          // Update Apollo client URL
+          updateApolloClientUrl(parsed.organization, parsed.deployment);
+          
+          // Update stored settings
+          const newUrl = `https://${parsed.organization}.dagster.cloud/${parsed.deployment}`;
+          await AsyncStorage.setItem('dagster_api_url', newUrl);
+          
+          // Wait a bit for Apollo client to update
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        console.error('Error handling deployment switch:', error);
+      }
+    }
+    
+    // Get navigation params
+    const navParams = getNavigationParams(parsed);
+    if (!navParams || !navigationRef.current) {
+      console.warn('Could not get navigation params or navigation ref not ready');
+      return;
+    }
+    
+    // Navigate to the appropriate screen
+    try {
+      navigationRef.current.navigate(navParams.tab, {
+        screen: navParams.screen,
+        params: navParams.params,
+      });
+    } catch (error) {
+      console.error('Error navigating to deep link:', error);
+    }
+  };
+  
+  // Configure linking
+  const linking = {
+    prefixes: [
+      'dagster-mobile://',
+      'https://*.dagster.cloud',
+      'https://dagster.cloud',
+      'http://*.dagster.cloud',
+      'http://dagster.cloud',
+    ],
+    config: {
+      screens: {
+        Main: {
+          screens: {
+            Automation: {
+              screens: {
+                AutomationList: 'automation',
+                AutomationDetail: {
+                  path: 'automation/:automationName',
+                  parse: {
+                    automationName: (name: string) => decodeURIComponent(name),
+                  },
+                },
+              },
+            },
+            Jobs: {
+              screens: {
+                JobsList: 'jobs',
+                JobDetail: {
+                  path: 'jobs/:jobName',
+                  parse: {
+                    jobName: (name: string) => decodeURIComponent(name),
+                  },
+                },
+              },
+            },
+            Catalog: {
+              screens: {
+                AssetsList: 'assets',
+                AssetDetail: {
+                  path: 'assets/:assetPath*',
+                  parse: {
+                    assetPath: (path: string) => path.split('/'),
+                  },
+                },
+              },
+            },
+            Runs: {
+              screens: {
+                RunsList: 'runs',
+                RunDetail: {
+                  path: 'runs/:runId',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
   
   return (
     <NavigationContainer
+      ref={navigationRef}
+      linking={linking}
       theme={{
         dark: theme.dark,
         colors: {

@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
-import { Card, Title, Paragraph, ActivityIndicator, Text, Searchbar, SegmentedButtons } from 'react-native-paper';
+import { View, FlatList, StyleSheet, RefreshControl, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import { Card, Title, Paragraph, ActivityIndicator, Text, Searchbar, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@apollo/client';
 import { GET_RUNS } from '../../lib/graphql/queries';
@@ -28,6 +28,7 @@ const RunsScreen: React.FC<RunsScreenProps> = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedStatus, setSelectedStatus] = React.useState<string>('ALL');
+  const [statusMenuVisible, setStatusMenuVisible] = React.useState(false);
   
   // Handle navigation to specific run from other screens
   React.useEffect(() => {
@@ -95,6 +96,11 @@ const RunsScreen: React.FC<RunsScreenProps> = ({ navigation, route }) => {
 
   const formatDate = (dateString: string) => formatDagsterDate(dateString);
   const formatTime = (dateString: string) => formatDagsterTime(dateString);
+
+  const getStatusDisplayName = (status: string) => {
+    if (status === 'ALL') return 'All';
+    return status.charAt(0) + status.slice(1).toLowerCase();
+  };
 
   const formatDuration = (startTime: string, endTime: string) => {
     console.log('formatDuration - startTime:', startTime);
@@ -215,7 +221,7 @@ const RunsScreen: React.FC<RunsScreenProps> = ({ navigation, route }) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <ActivityIndicator size="large" />
         <Text style={{ color: theme.colors.onSurfaceVariant }}>Loading runs...</Text>
       </SafeAreaView>
@@ -223,7 +229,7 @@ const RunsScreen: React.FC<RunsScreenProps> = ({ navigation, route }) => {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
       <Searchbar
         placeholder="Search runs..."
@@ -231,15 +237,68 @@ const RunsScreen: React.FC<RunsScreenProps> = ({ navigation, route }) => {
         value={searchQuery}
         style={styles.searchBar}
       />
-        <SegmentedButtons
-          value={selectedStatus}
-          onValueChange={setSelectedStatus}
-          buttons={allStatuses.map((status: string) => ({
-            value: status,
-            label: status
-          }))}
-          style={styles.statusFilter}
-        />
+        <View style={styles.filterContainer}>
+          <Button
+            mode="outlined"
+            onPress={() => setStatusMenuVisible(true)}
+            style={styles.statusFilterButton}
+            textColor={theme.colors.onSurface}
+            icon="chevron-down"
+          >
+            Status: {getStatusDisplayName(selectedStatus)}
+          </Button>
+          
+          <Modal
+            visible={statusMenuVisible}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setStatusMenuVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>
+                    Select Status
+                  </Text>
+                  <TouchableOpacity onPress={() => setStatusMenuVisible(false)}>
+                    <Text style={[styles.closeButton, { color: theme.colors.primary }]}>
+                      ✕
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <FlatList
+                  data={allStatuses.map((status: string) => ({
+                    value: status,
+                    label: getStatusDisplayName(status)
+                  }))}
+                  keyExtractor={(item) => item.value}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedStatus(item.value);
+                        setStatusMenuVisible(false);
+                      }}
+                      style={[
+                        styles.modalItem,
+                        selectedStatus === item.value && { backgroundColor: theme.colors.primaryContainer }
+                      ]}
+                    >
+                      <Text style={[
+                        styles.modalItemText,
+                        { color: theme.colors.onSurface },
+                        selectedStatus === item.value && { color: theme.colors.onPrimaryContainer }
+                      ]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  style={styles.modalList}
+                />
+              </View>
+            </View>
+          </Modal>
+        </View>
       </View>
       
       <FlatList
@@ -277,6 +336,51 @@ const styles = StyleSheet.create({
   searchBar: {
     marginBottom: 12,
     elevation: 2,
+  },
+  filterContainer: {
+    marginBottom: 8,
+  },
+  statusFilterButton: {
+    alignSelf: 'flex-start',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    maxHeight: '70%',
+    borderRadius: 12,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  modalList: {
+    maxHeight: 300,
+  },
+  modalItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalItemText: {
+    fontSize: 16,
   },
   list: {
     flex: 1,
@@ -353,9 +457,6 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 8,
-  },
-  statusFilter: {
-    marginTop: 8,
   },
 });
 

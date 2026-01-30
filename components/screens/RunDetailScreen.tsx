@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
-import { Card, Title, Paragraph, ActivityIndicator, Text, Divider, Button } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, Share, Alert } from 'react-native';
+import { Card, Title, Paragraph, ActivityIndicator, Text, Divider, Button, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@apollo/client';
 import { GET_RUN, GET_RUN_LOGS } from '../../lib/graphql/queries';
@@ -8,6 +8,7 @@ import LogsViewer from '../LogsViewer';
 import { formatDagsterDate, formatDagsterTime, formatDagsterDateTime } from '../../lib/utils/dateUtils';
 import { mockLogs, mockFailedLogs } from '../../lib/mock-data';
 import { useTheme } from '../ThemeProvider';
+import { generateDagsterUrl } from '../../lib/utils/shareUtils';
 
 interface RunDetailScreenProps {
   navigation: any;
@@ -35,21 +36,63 @@ const RunDetailScreen: React.FC<RunDetailScreenProps> = ({ navigation, route }) 
     }
   }, [runId, data, error]);
 
-  // Set up header with status chip
+  // Set up header with status chip, alert button, and share button
   React.useEffect(() => {
     if (data?.runOrError) {
       const run = data.runOrError;
       navigation.setOptions({
         headerRight: () => (
-          <View style={styles.headerStatusBadge}>
-            <Text style={[styles.headerStatusText, { backgroundColor: getStatusColor(run.status) }]}>
-              {run.status}
-            </Text>
+          <View style={styles.headerRight}>
+            <View style={[styles.headerStatusPill, { backgroundColor: getStatusColor(run.status) }]}>
+              <Text style={styles.headerStatusText}>{run.status}</Text>
+            </View>
+            <IconButton
+              icon="bell-plus"
+              size={20}
+              onPress={() => {
+                // Create alert for the job that this run belongs to
+                navigation.navigate('Home', {
+                  screen: 'CreateAlert',
+                  params: {
+                    targetId: run.pipelineName,
+                    targetName: run.pipelineName,
+                    suggestedType: 'JOB_FAILURE'
+                  }
+                });
+              }}
+              style={{ margin: 0 }}
+            />
+            <IconButton
+              icon="share-variant"
+              size={20}
+              onPress={async () => {
+                try {
+                  const url = await generateDagsterUrl(
+                    'run',
+                    runId,
+                    run.repositoryOrigin?.repositoryLocationName,
+                    run.repositoryOrigin?.repositoryName
+                  );
+                  if (url) {
+                    await Share.share({
+                      message: url,
+                      url: url, // iOS
+                      title: 'Share Run', // Android
+                    });
+                  } else {
+                    Alert.alert('Error', 'Could not generate share URL. Please check your settings.');
+                  }
+                } catch (error: any) {
+                  Alert.alert('Error', `Failed to share: ${error.message}`);
+                }
+              }}
+              style={{ margin: 0 }}
+            />
           </View>
         ),
       });
     }
-  }, [navigation, data]);
+  }, [navigation, data, runId]);
 
   const { 
     data: logsData, 
@@ -113,7 +156,7 @@ const RunDetailScreen: React.FC<RunDetailScreenProps> = ({ navigation, route }) 
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <ActivityIndicator size="large" />
         <Text style={{ color: theme.colors.onSurfaceVariant }}>Loading run details...</Text>
       </SafeAreaView>
@@ -125,7 +168,7 @@ const RunDetailScreen: React.FC<RunDetailScreenProps> = ({ navigation, route }) 
   if (error) {
     console.log('RunDetailScreen - GraphQL error:', error);
     return (
-      <SafeAreaView style={[styles.errorContainer, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.errorContainer, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <Text style={{ color: theme.colors.onSurfaceVariant }}>Error loading run: {error.message}</Text>
       </SafeAreaView>
     );
@@ -134,7 +177,7 @@ const RunDetailScreen: React.FC<RunDetailScreenProps> = ({ navigation, route }) 
   if (!run) {
     console.log('RunDetailScreen - No run data found');
     return (
-      <SafeAreaView style={[styles.errorContainer, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.errorContainer, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <Text style={{ color: theme.colors.onSurfaceVariant }}>Run not found</Text>
         <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>
           Run ID: {runId}
@@ -144,8 +187,8 @@ const RunDetailScreen: React.FC<RunDetailScreenProps> = ({ navigation, route }) 
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView 
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <ScrollView
         style={styles.scrollView}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -353,16 +396,21 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 400,
   },
-  headerStatusBadge: {
-    marginRight: 16,
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  headerStatusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 4,
   },
   headerStatusText: {
     color: 'white',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
   },
   clickableText: {
     textDecorationLine: 'underline',

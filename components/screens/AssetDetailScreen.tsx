@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, Alert } from 'react-native';
-import { Card, Title, Paragraph, ActivityIndicator, Text, Divider, Chip, Button } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, RefreshControl, Alert, Share } from 'react-native';
+import { Card, Title, Paragraph, ActivityIndicator, Text, Divider, Chip, Button, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@apollo/client';
 import { GET_ASSET, GET_ASSET_DETAILS, GET_ASSET_VIEW_DEFINITION } from '../../lib/graphql/queries';
@@ -8,6 +8,8 @@ import { AssetKeyInput } from '../../lib/types/dagster';
 import { formatDagsterDate, formatDagsterTime } from '../../lib/utils/dateUtils';
 import { useLaunchMaterialization, useAssetPartitionInfo } from '../../lib/utils/assetUtils';
 import { useTheme } from '../ThemeProvider';
+import { generateDagsterUrl } from '../../lib/utils/shareUtils';
+import AssetInsights from '../AssetInsights';
 
 interface AssetDetailScreenProps {
   navigation: any;
@@ -50,7 +52,25 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
     }
 
     try {
-      await launchMaterialization({ assetKey });
+      const result = await launchMaterialization({ assetKey });
+      
+      // Check for permission errors in the response
+      if (result?.data?.launchPipelineExecution?.__typename === 'UnauthorizedError') {
+        Alert.alert(
+          'Permission Denied',
+          result.data.launchPipelineExecution.message || getPermissionErrorMessage('launch materializations')
+        );
+        return;
+      }
+      
+      if (result?.data?.launchPipelineExecution?.__typename === 'PythonError') {
+        Alert.alert(
+          'Error',
+          result.data.launchPipelineExecution.message || 'An error occurred while launching materialization'
+        );
+        return;
+      }
+      
       Alert.alert(
         'Success',
         'Asset materialization launched successfully!',
@@ -58,17 +78,74 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
       );
       // Refresh the asset data to show the new run
       refetch();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to launch materialization:', error);
+      
+      const errorMsg = isPermissionError(error) 
+        ? getPermissionErrorMessage('launch materializations')
+        : extractErrorMessage(error);
+      
       Alert.alert(
-        'Error',
-        'Failed to launch asset materialization. Please try again.',
+        isPermissionError(error) ? 'Permission Denied' : 'Error',
+        `Failed to launch asset materialization: ${errorMsg}`,
         [{ text: 'OK' }]
       );
     }
   };
 
-  // No header button needed since Materialize button is in the Asset Overview card
+  // Set up share button in header
+  React.useEffect(() => {
+    if (data?.assetOrError) {
+      const asset = data.assetOrError;
+      navigation.setOptions({
+        headerRight: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
+            <IconButton
+              icon="bell-plus"
+              size={20}
+              onPress={() => {
+                const assetPath = asset.key?.path?.join('/') || '';
+                navigation.navigate('Home', {
+                  screen: 'CreateAlert',
+                  params: {
+                    targetId: assetPath,
+                    targetName: assetPath,
+                    suggestedType: 'ASSET_FAILURE'
+                  }
+                });
+              }}
+              style={{ margin: 0 }}
+            />
+            <IconButton
+              icon="share-variant"
+              size={20}
+              onPress={async () => {
+                try {
+                  const assetPath = asset.key?.path?.join('/') || '';
+                  const url = await generateDagsterUrl(
+                    'asset',
+                    assetPath
+                  );
+                  if (url) {
+                    await Share.share({
+                      message: url,
+                      url: url, // iOS
+                      title: 'Share Asset', // Android
+                    });
+                  } else {
+                    Alert.alert('Error', 'Could not generate share URL. Please check your settings.');
+                  }
+                } catch (error: any) {
+                  Alert.alert('Error', `Failed to share: ${error.message}`);
+                }
+              }}
+              style={{ margin: 0 }}
+            />
+          </View>
+        ),
+      });
+    }
+  }, [navigation, data]);
 
   // Debug logging for asset data
   React.useEffect(() => {
@@ -486,7 +563,7 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <ActivityIndicator size="large" />
         <Text style={{ color: theme.colors.onSurfaceVariant }}>Loading asset details...</Text>
       </SafeAreaView>
@@ -497,7 +574,7 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
   
   if (!asset) {
     return (
-      <SafeAreaView style={[styles.errorContainer, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.errorContainer, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: theme.colors.onSurface }}>
           Asset not found
         </Text>
@@ -512,7 +589,7 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <ScrollView 
         style={styles.scrollView}
         refreshControl={
@@ -555,29 +632,53 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
           <Card style={styles.card}>
             <Card.Content>
               <Title style={{ color: theme.colors.onSurface }}>Asset Health</Title>
-              <View style={styles.healthRow}>
-                <View style={styles.healthItem}>
-                  <Text style={[styles.healthLabel, { color: theme.colors.onSurfaceVariant }]}>Overall</Text>
-                  <View style={[styles.healthBadge, { backgroundColor: getHealthColor(asset.assetHealth.assetHealth) }]}>
-                    <Text style={styles.healthText}>{asset.assetHealth.assetHealth}</Text>
+              <View style={styles.healthContainer}>
+                <View style={styles.healthRow}>
+                  <View style={styles.healthItem}>
+                    <Text 
+                      style={[styles.healthLabel, { color: theme.colors.onSurfaceVariant }]}
+                      numberOfLines={1}
+                    >
+                      Overall
+                    </Text>
+                    <View style={[styles.healthBadge, { backgroundColor: getHealthColor(asset.assetHealth.assetHealth) }]}>
+                      <Text style={styles.healthText}>{asset.assetHealth.assetHealth}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.healthItem}>
+                    <Text 
+                      style={[styles.healthLabel, { color: theme.colors.onSurfaceVariant }]}
+                      numberOfLines={1}
+                    >
+                      Materialization
+                    </Text>
+                    <View style={[styles.healthBadge, { backgroundColor: getHealthColor(asset.assetHealth.materializationStatus) }]}>
+                      <Text style={styles.healthText}>{asset.assetHealth.materializationStatus}</Text>
+                    </View>
                   </View>
                 </View>
-                <View style={styles.healthItem}>
-                  <Text style={[styles.healthLabel, { color: theme.colors.onSurfaceVariant }]}>Materialization</Text>
-                  <View style={[styles.healthBadge, { backgroundColor: getHealthColor(asset.assetHealth.materializationStatus) }]}>
-                    <Text style={styles.healthText}>{asset.assetHealth.materializationStatus}</Text>
+                <View style={styles.healthRow}>
+                  <View style={styles.healthItem}>
+                    <Text 
+                      style={[styles.healthLabel, { color: theme.colors.onSurfaceVariant }]}
+                      numberOfLines={1}
+                    >
+                      Checks
+                    </Text>
+                    <View style={[styles.healthBadge, { backgroundColor: getHealthColor(asset.assetHealth.assetChecksStatus) }]}>
+                      <Text style={styles.healthText}>{formatHealthStatus(asset.assetHealth.assetChecksStatus)}</Text>
+                    </View>
                   </View>
-                </View>
-                <View style={styles.healthItem}>
-                  <Text style={[styles.healthLabel, { color: theme.colors.onSurfaceVariant }]}>Checks</Text>
-                  <View style={[styles.healthBadge, { backgroundColor: getHealthColor(asset.assetHealth.assetChecksStatus) }]}>
-                    <Text style={styles.healthText}>{formatHealthStatus(asset.assetHealth.assetChecksStatus)}</Text>
-                  </View>
-                </View>
-                <View style={styles.healthItem}>
-                  <Text style={[styles.healthLabel, { color: theme.colors.onSurfaceVariant }]}>Freshness</Text>
-                  <View style={[styles.healthBadge, { backgroundColor: getHealthColor(asset.assetHealth.freshnessStatus) }]}>
-                    <Text style={styles.healthText}>{formatHealthStatus(asset.assetHealth.freshnessStatus)}</Text>
+                  <View style={styles.healthItem}>
+                    <Text 
+                      style={[styles.healthLabel, { color: theme.colors.onSurfaceVariant }]}
+                      numberOfLines={1}
+                    >
+                      Freshness
+                    </Text>
+                    <View style={[styles.healthBadge, { backgroundColor: getHealthColor(asset.assetHealth.freshnessStatus) }]}>
+                      <Text style={styles.healthText}>{formatHealthStatus(asset.assetHealth.freshnessStatus)}</Text>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -642,6 +743,9 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
             )}
           </Card.Content>
         </Card>
+
+        {/* Asset Insights */}
+        <AssetInsights assetKey={assetKey} />
 
         {/* Asset Materializations */}
         {asset.assetMaterializations && asset.assetMaterializations.length > 0 && (
@@ -780,18 +884,23 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     marginTop: 8,
   },
+  healthContainer: {
+    marginTop: 8,
+  },
   healthRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginBottom: 12,
   },
   healthItem: {
     alignItems: 'center',
     flex: 1,
+    paddingHorizontal: 4,
   },
   healthLabel: {
     fontSize: 12,
     marginBottom: 4,
+    textAlign: 'center',
   },
   healthBadge: {
     paddingHorizontal: 8,

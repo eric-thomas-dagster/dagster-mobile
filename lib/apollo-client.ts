@@ -2,6 +2,7 @@ import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/clien
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { ENV_CONFIG } from '../config/env';
 
 // Create a function to build the GraphQL URL for a deployment
@@ -19,10 +20,20 @@ const createDynamicHttpLink = (url: string) => {
   });
 };
 
-// Auth link to add API token from stored settings
+// Auth link to add API token from stored settings (using SecureStore)
 const authLink = setContext(async (_, { headers }) => {
   try {
-    const apiToken = await AsyncStorage.getItem('dagster_api_token');
+    // Try SecureStore first (for sensitive API token)
+    let apiToken = await SecureStore.getItemAsync('dagster_api_token');
+    // Fallback to AsyncStorage for backward compatibility
+    if (!apiToken) {
+      apiToken = await AsyncStorage.getItem('dagster_api_token');
+      // Migrate to SecureStore if found in AsyncStorage
+      if (apiToken) {
+        await SecureStore.setItemAsync('dagster_api_token', apiToken);
+        await AsyncStorage.removeItem('dagster_api_token');
+      }
+    }
     return {
       headers: {
         ...headers,
@@ -107,4 +118,9 @@ export const updateApolloClientWithSettings = async () => {
   } catch (error) {
     console.warn('Failed to update Apollo client with stored settings:', error);
   }
+};
+
+// Function to get the Apollo client instance (for background tasks)
+export const getApolloClient = () => {
+  return apolloClient;
 }; 

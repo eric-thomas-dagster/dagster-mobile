@@ -356,7 +356,7 @@ const JobsScreen: React.FC<JobsScreenProps> = ({ navigation, route }) => {
   
   if (loading) {
     return (
-      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <ActivityIndicator size="large" />
         <Text style={{ color: theme.colors.onSurfaceVariant }}>Loading jobs...</Text>
       </SafeAreaView>
@@ -364,7 +364,7 @@ const JobsScreen: React.FC<JobsScreenProps> = ({ navigation, route }) => {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
         <Searchbar
           placeholder="Search jobs..."
@@ -450,6 +450,7 @@ const JobsScreen: React.FC<JobsScreenProps> = ({ navigation, route }) => {
         <TimelineView
           timeRange={timeRange}
           onTimeRangeChange={setTimeRange}
+          navigation={navigation}
         />
       )}
     </SafeAreaView>

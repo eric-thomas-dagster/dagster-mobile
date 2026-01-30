@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, Alert } from 'react-native';
-import { Card, Title, Paragraph, ActivityIndicator, Text, Divider, Button } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, Alert, Share } from 'react-native';
+import { Card, Title, Paragraph, ActivityIndicator, Text, Divider, Button, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@apollo/client';
 import { GET_JOBS } from '../../lib/graphql/queries';
@@ -8,6 +8,7 @@ import { RepositorySelector } from '../../lib/types/dagster';
 import { formatDagsterDateTime } from '../../lib/utils/dateUtils';
 import { useLaunchJobMaterialization, useJobMetadata, useJobPartitionSets } from '../../lib/utils/assetUtils';
 import { useTheme } from '../ThemeProvider';
+import { generateDagsterUrl } from '../../lib/utils/shareUtils';
 
 interface JobDetailScreenProps {
   navigation: any;
@@ -63,7 +64,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ navigation, route }) 
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <ActivityIndicator size="large" />
         <Text style={{ color: theme.colors.onSurfaceVariant }}>Loading job details...</Text>
       </SafeAreaView>
@@ -110,9 +111,62 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ navigation, route }) 
   // Determine if job is partitioned based on partition sets
   const isPartitioned = hasPartitionSets;
 
+  // Set up share button in header
+  React.useEffect(() => {
+    if (job) {
+      navigation.setOptions({
+        headerRight: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
+            <IconButton
+              icon="bell-plus"
+              size={20}
+              onPress={() => {
+                navigation.navigate('Home', {
+                  screen: 'CreateAlert',
+                  params: {
+                    targetId: job.pipelineName,
+                    targetName: job.pipelineName,
+                    suggestedType: 'JOB_FAILURE'
+                  }
+                });
+              }}
+              style={{ margin: 0 }}
+            />
+            <IconButton
+              icon="share-variant"
+              size={20}
+              onPress={async () => {
+                try {
+                  const url = await generateDagsterUrl(
+                    'job',
+                    job.pipelineName,
+                    repositoryLocationName,
+                    repositoryName
+                  );
+                  if (url) {
+                    await Share.share({
+                      message: url,
+                      url: url, // iOS
+                      title: 'Share Job', // Android
+                    });
+                  } else {
+                    Alert.alert('Error', 'Could not generate share URL. Please check your settings.');
+                  }
+                } catch (error: any) {
+                  Alert.alert('Error', `Failed to share: ${error.message}`);
+                }
+              }}
+              style={{ margin: 0 }}
+            />
+          </View>
+        ),
+      });
+    }
+  }, [navigation, job, repositoryLocationName, repositoryName]);
+
   if (!job) {
     return (
-      <SafeAreaView style={[styles.errorContainer, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.errorContainer, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <Text style={{ color: theme.colors.onSurfaceVariant }}>Job not found</Text>
         <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>
           Job ID: {jobId}
@@ -134,12 +188,30 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ navigation, route }) 
     }
 
     try {
-      await launchJobMaterialization({
+      const result = await launchJobMaterialization({
         pipelineName: job.pipelineName,
         assetKeys: assets,
         repositoryLocationName: repositoryLocationName || 'data-eng-pipeline',
         repositoryName: repositoryName || '__repository__'
       });
+      
+      // Check for permission errors in the response
+      if (result?.data?.launchPipelineExecution?.__typename === 'UnauthorizedError') {
+        Alert.alert(
+          'Permission Denied',
+          result.data.launchPipelineExecution.message || getPermissionErrorMessage('launch job materializations')
+        );
+        return;
+      }
+      
+      if (result?.data?.launchPipelineExecution?.__typename === 'PythonError') {
+        Alert.alert(
+          'Error',
+          result.data.launchPipelineExecution.message || 'An error occurred while launching materialization'
+        );
+        return;
+      }
+      
       Alert.alert(
         'Success',
         'Job materialization launched successfully!',
@@ -160,7 +232,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ navigation, route }) 
   // No header status badge needed since status is shown in Run Information
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <ScrollView 
         style={styles.scrollView}
         refreshControl={

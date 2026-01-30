@@ -7,6 +7,7 @@ import { GET_RUNS, GET_JOBS, GET_ASSETS } from '../../lib/graphql/queries';
 import { RepositorySelector, DagsterCloudDeployment } from '../../lib/types/dagster';
 import { mockRuns, mockPipelines, mockAssets } from '../../lib/mock-data';
 import DeploymentSelector from '../DeploymentSelector';
+import ShareUrlHandler from '../ShareUrlHandler';
 import { updateApolloClientUrl } from '../../lib/apollo-client';
 import { formatDagsterDate, formatDagsterTime } from '../../lib/utils/dateUtils';
 import { useTheme } from '../ThemeProvider';
@@ -21,9 +22,26 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
   const [refreshing, setRefreshing] = React.useState(false);
   const [showDeploymentSelector, setShowDeploymentSelector] = React.useState(false);
+  const [showShareHandler, setShowShareHandler] = React.useState(false);
   const [currentDeployment, setCurrentDeployment] = React.useState('data-eng-prod');
   const [hasConfiguredSettings, setHasConfiguredSettings] = React.useState(false);
   const [isCheckingSettings, setIsCheckingSettings] = React.useState(true);
+
+  // Set up header with bell icon for alerts
+  React.useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
+          <IconButton
+            icon="bell"
+            size={24}
+            onPress={() => navigation.navigate('Alerts')}
+            style={{ margin: 0 }}
+          />
+        </View>
+      ),
+    });
+  }, [navigation]);
   
   const { data: runsData, loading: runsLoading, refetch: refetchRuns, error: runsError } = useQuery(GET_RUNS, {
     variables: { limit: 5 },
@@ -95,10 +113,23 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
 
   const handlePipelinePress = (pipeline: any) => {
     // Since pipeline.id is actually a run ID, we need to pass it as jobId
-    navigation.navigate('Jobs', { 
-      screen: 'JobsList', 
-      params: { navigateToJob: pipeline.id } 
+    navigation.navigate('Jobs', {
+      screen: 'JobsList',
+      params: { navigateToJob: pipeline.id }
     });
+  };
+
+  const handleUrlOpened = (url: string) => {
+    const { parseDagsterUrl, getNavigationParams } = require('../../lib/utils/deepLinkUtils');
+    const parsed = parseDagsterUrl(url);
+    const navParams = getNavigationParams(parsed);
+
+    if (navParams) {
+      navigation.navigate(navParams.tab, {
+        screen: navParams.screen,
+        params: navParams.params,
+      });
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -149,7 +180,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   const assets = assetsData?.assetsOrError?.nodes || [];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <ScrollView 
         style={styles.scrollView}
         refreshControl={
@@ -161,12 +192,20 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
           <View style={styles.overviewHeader}>
           <View style={styles.titleRow}>
             <Title style={styles.overviewTitle}>Overview</Title>
-            <IconButton
-              icon="cog"
-              size={20}
-              onPress={() => navigation.navigate('Settings')}
-              style={styles.settingsButton}
-            />
+            <View style={styles.headerButtons}>
+              <IconButton
+                icon="share-variant"
+                size={20}
+                onPress={() => setShowShareHandler(true)}
+                style={styles.shareButton}
+              />
+              <IconButton
+                icon="cog"
+                size={20}
+                onPress={() => navigation.navigate('Settings')}
+                style={styles.settingsButton}
+              />
+            </View>
           </View>
                       {hasConfiguredSettings && (
               <Button 
@@ -307,6 +346,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
             onClose={() => setShowDeploymentSelector(false)}
           />
         )}
+
+        {showShareHandler && (
+          <View style={styles.shareHandlerOverlay}>
+            <ShareUrlHandler
+              onUrlHandled={handleUrlOpened}
+              onClose={() => setShowShareHandler(false)}
+            />
+          </View>
+        )}
       </SafeAreaView>
   );
 };
@@ -330,6 +378,13 @@ const styles = StyleSheet.create({
   overviewTitle: {
     fontSize: 20,
     marginBottom: 0,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shareButton: {
+    margin: 0,
   },
   settingsButton: {
     margin: 0,
@@ -477,6 +532,17 @@ const styles = StyleSheet.create({
   },
   configureButton: {
     marginTop: 8,
+  },
+  shareHandlerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
   },
 });
 

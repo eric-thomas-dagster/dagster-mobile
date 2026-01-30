@@ -1,12 +1,14 @@
 import React from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, TouchableOpacity, Switch, Alert } from 'react-native';
-import { Card, Title, Paragraph, ActivityIndicator, Text, Chip, SegmentedButtons } from 'react-native-paper';
+import { View, FlatList, StyleSheet, RefreshControl, TouchableOpacity, Switch, Alert, Share } from 'react-native';
+import { Card, Title, Paragraph, ActivityIndicator, Text, Chip, SegmentedButtons, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useApolloClient } from '@apollo/client';
 import { GET_TICK_HISTORY, GET_AUTOMATION_RUNS, START_SENSOR, STOP_SENSOR, START_SCHEDULE, STOP_SCHEDULE } from '../../lib/graphql/queries';
 import { InstigationSelector, InstigationTick, AutomationRun } from '../../lib/types/dagster';
 import { formatDagsterDate, formatDagsterTime } from '../../lib/utils/dateUtils';
 import { useTheme } from '../ThemeProvider';
+import { isPermissionError, getPermissionErrorMessage, extractErrorMessage } from '../../lib/utils/errorUtils';
+import { generateDagsterUrl } from '../../lib/utils/shareUtils';
 
 interface AutomationDetailScreenProps {
   navigation: any;
@@ -15,11 +17,119 @@ interface AutomationDetailScreenProps {
 
 const AutomationDetailScreen: React.FC<AutomationDetailScreenProps> = ({ navigation, route }) => {
   const { theme } = useTheme();
-  const { automation } = route.params;
+  // Support both direct automation object and deep link parameters
+  const { automation, automationName, automationType, repositoryName, repositoryLocationName } = route.params;
   const [refreshing, setRefreshing] = React.useState(false);
+  
+  // If we have deep link parameters, find the automation
+  const [foundAutomation, setFoundAutomation] = React.useState<any>(automation);
+  const [loadingAutomation, setLoadingAutomation] = React.useState(!!automationName && !automation);
+  
+  React.useEffect(() => {
+    if (automationName && !automation) {
+      // Find the automation by querying
+      findAutomationByName();
+    }
+  }, [automationName, automationType, repositoryName, repositoryLocationName]);
+  
+  const findAutomationByName = async () => {
+    if (!automationName || !automationType) return;
+    
+    setLoadingAutomation(true);
+    try {
+      const repositorySelector = {
+        repositoryLocationName: repositoryLocationName || 'data-eng-pipeline',
+        repositoryName: repositoryName || '__repository__',
+      };
+      
+      // Query for the automation
+      const client = useApolloClient();
+      
+      if (automationType === 'sensor') {
+        const result = await client.query({
+          query: GET_SENSORS,
+          variables: { repositorySelector },
+          fetchPolicy: 'network-only',
+        });
+        const sensors = result.data?.sensorsOrError?.results || [];
+        const sensor = sensors.find((s: any) => s.name === automationName);
+        if (sensor) {
+          setFoundAutomation({
+            id: sensor.id,
+            name: sensor.name,
+            status: sensor.sensorState?.status || 'STOPPED',
+            type: 'sensor',
+            repositoryName: repositorySelector.repositoryName,
+            repositoryLocationName: repositorySelector.repositoryLocationName,
+          });
+        }
+      } else if (automationType === 'schedule') {
+        const result = await client.query({
+          query: GET_SCHEDULES,
+          variables: { repositorySelector },
+          fetchPolicy: 'network-only',
+        });
+        const schedules = result.data?.schedulesOrError?.results || [];
+        const schedule = schedules.find((s: any) => s.name === automationName);
+        if (schedule) {
+          setFoundAutomation({
+            id: schedule.id,
+            name: schedule.name,
+            status: schedule.scheduleState?.status || 'STOPPED',
+            type: 'schedule',
+            repositoryName: repositorySelector.repositoryName,
+            repositoryLocationName: repositorySelector.repositoryLocationName,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error finding automation:', error);
+    } finally {
+      setLoadingAutomation(false);
+    }
+  };
+  
+  // Use found automation or provided automation
+  const automationToUse = foundAutomation || automation;
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'success' | 'failure' | 'skipped'>('all');
   const [activeTab, setActiveTab] = React.useState<'history' | 'runs'>('history');
   const client = useApolloClient();
+
+  // Set up share button in header
+  React.useEffect(() => {
+    if (automationToUse) {
+      navigation.setOptions({
+        headerRight: () => (
+          <IconButton
+            icon="share-variant"
+            size={20}
+            onPress={async () => {
+              try {
+                const url = await generateDagsterUrl(
+                  automationToUse.type === 'sensor' ? 'sensor' : 'schedule',
+                  automationToUse.name,
+                  automationToUse.repositoryLocationName,
+                  automationToUse.repositoryName
+                );
+                if (url) {
+                  await Share.share({
+                    message: url,
+                    url: url, // iOS
+                    title: `Share ${automationToUse.type === 'sensor' ? 'Sensor' : 'Schedule'}`, // Android
+                  });
+                } else {
+                  Alert.alert('Error', 'Could not generate share URL. Please check your settings.');
+                }
+              } catch (error: any) {
+                Alert.alert('Error', `Failed to share: ${error.message}`);
+              }
+            }}
+            style={{ margin: 0, marginRight: 8 }}
+          />
+        ),
+      });
+    }
+  }, [navigation, automationToUse]);
 
   // Mutations for enabling/disabling automations
   const [startSensor] = useMutation(START_SENSOR, {
@@ -39,16 +149,18 @@ const AutomationDetailScreen: React.FC<AutomationDetailScreenProps> = ({ navigat
   });
 
   const handleToggleAutomation = async (newValue: boolean) => {
+    if (!automationToUse) return;
+    
     try {
       const repositorySelector = {
-        repositoryLocationName: automation.repositoryLocationName,
-        repositoryName: automation.repositoryName,
+        repositoryLocationName: automationToUse.repositoryLocationName,
+        repositoryName: automationToUse.repositoryName,
       };
 
-      if (automation.type === 'sensor') {
+      if (automationToUse.type === 'sensor') {
         const sensorSelector = {
           ...repositorySelector,
-          sensorName: automation.name,
+          sensorName: automationToUse.name,
         };
 
         if (newValue) {
@@ -60,10 +172,10 @@ const AutomationDetailScreen: React.FC<AutomationDetailScreenProps> = ({ navigat
             variables: { sensorSelector },
           });
         }
-      } else if (automation.type === 'schedule') {
+      } else if (automationToUse.type === 'schedule') {
         const scheduleSelector = {
           ...repositorySelector,
-          scheduleName: automation.name,
+          scheduleName: automationToUse.name,
         };
 
         if (newValue) {
@@ -77,8 +189,51 @@ const AutomationDetailScreen: React.FC<AutomationDetailScreenProps> = ({ navigat
         }
       }
 
+      // Check for errors in the response
+      let hasError = false;
+      let errorMessage = '';
+      
+      if (automationToUse.type === 'sensor') {
+        const result = newValue 
+          ? await startSensor({ variables: { sensorSelector } })
+          : await stopSensor({ variables: { sensorSelector } });
+        
+        const response = newValue ? result.data?.startSensor : result.data?.stopSensor;
+        
+        if (response?.__typename === 'UnauthorizedError') {
+          hasError = true;
+          errorMessage = response.message || getPermissionErrorMessage(`${newValue ? 'start' : 'stop'} sensors`);
+        } else if (response?.__typename === 'PythonError') {
+          hasError = true;
+          errorMessage = response.message || 'An error occurred';
+        }
+      } else if (automationToUse.type === 'schedule') {
+        const result = newValue 
+          ? await startSchedule({ variables: { scheduleSelector } })
+          : await stopSchedule({ variables: { scheduleSelector } });
+        
+        const response = newValue ? result.data?.startSchedule : result.data?.stopSchedule;
+        
+        if (response?.__typename === 'UnauthorizedError') {
+          hasError = true;
+          errorMessage = response.message || getPermissionErrorMessage(`${newValue ? 'start' : 'stop'} schedules`);
+        } else if (response?.__typename === 'PythonError') {
+          hasError = true;
+          errorMessage = response.message || 'An error occurred';
+        }
+      }
+      
+      if (hasError) {
+        Alert.alert(
+          'Permission Denied',
+          errorMessage,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
       // Update the local automation status
-      automation.status = newValue ? 'RUNNING' : 'STOPPED';
+      setFoundAutomation({ ...automationToUse, status: newValue ? 'RUNNING' : 'STOPPED' });
       
       // Show success message
       Alert.alert(
@@ -88,18 +243,32 @@ const AutomationDetailScreen: React.FC<AutomationDetailScreenProps> = ({ navigat
       );
     } catch (error: any) {
       console.error('Error toggling automation:', error);
+      
+      const errorMsg = isPermissionError(error) 
+        ? getPermissionErrorMessage(`${newValue ? 'start' : 'stop'} ${automationToUse.type}s`)
+        : extractErrorMessage(error);
+      
       Alert.alert(
-        'Error',
-        `Failed to ${newValue ? 'enable' : 'disable'} automation: ${error.message}`,
+        isPermissionError(error) ? 'Permission Denied' : 'Error',
+        `Failed to ${newValue ? 'enable' : 'disable'} automation: ${errorMsg}`,
         [{ text: 'OK' }]
       );
     }
   };
 
+  if (loadingAutomation || !automationToUse) {
+    return (
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]} edges={['top']}>
+        <ActivityIndicator size="large" />
+        <Text style={{ color: theme.colors.onSurfaceVariant }}>Loading automation...</Text>
+      </SafeAreaView>
+    );
+  }
+  
   const instigationSelector: InstigationSelector = {
-    repositoryName: automation.repositoryName,
-    repositoryLocationName: automation.repositoryLocationName,
-    name: automation.name,
+    repositoryName: automationToUse.repositoryName,
+    repositoryLocationName: automationToUse.repositoryLocationName,
+    name: automationToUse.name,
   };
 
   const { data: tickData, loading: tickLoading, error: tickError, refetch: refetchTicks } = useQuery(GET_TICK_HISTORY, {
@@ -114,8 +283,8 @@ const AutomationDetailScreen: React.FC<AutomationDetailScreenProps> = ({ navigat
   // Debug logging for tick history
   console.log('Automation Detail - Tick History Variables:', {
     instigationSelector,
-    automationType: automation.type,
-    automationName: automation.name
+    automationType: automationToUse.type,
+    automationName: automationToUse.name
   });
   console.log('Automation Detail - Tick Data:', tickData);
   console.log('Automation Detail - Tick Error:', tickError);
@@ -129,21 +298,22 @@ const AutomationDetailScreen: React.FC<AutomationDetailScreenProps> = ({ navigat
           tags: [
             // Use different tag based on automation type
             { 
-              key: automation.type === 'schedule' ? 'dagster/schedule_name' : 'dagster/sensor_name', 
-              value: automation.name 
+              key: automationToUse.type === 'schedule' ? 'dagster/schedule_name' : 'dagster/sensor_name', 
+              value: automationToUse.name 
             }
           ]
         }
       },
       errorPolicy: 'all',
+      skip: !automationToUse,
     });
 
     // Debug logging
     console.log('Automation Detail - Runs Query Variables:', {
-      automationName: automation.name,
-      automationType: automation.type,
-      repositoryLocationName: automation.repositoryLocationName,
-      repositoryName: automation.repositoryName,
+      automationName: automationToUse.name,
+      automationType: automationToUse.type,
+      repositoryLocationName: automationToUse.repositoryLocationName,
+      repositoryName: automationToUse.repositoryName,
       filter: {
         tags: [
           { 
@@ -307,7 +477,7 @@ const AutomationDetailScreen: React.FC<AutomationDetailScreenProps> = ({ navigat
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <ActivityIndicator size="large" />
         <Text style={{ color: theme.colors.onSurfaceVariant }}>Loading automation details...</Text>
       </SafeAreaView>
@@ -345,22 +515,22 @@ const AutomationDetailScreen: React.FC<AutomationDetailScreenProps> = ({ navigat
   });
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
         <View style={styles.headerTop}>
           <View style={styles.headerInfo}>
-            <Title style={[styles.automationName, { color: theme.colors.onSurface }]}>{automation.name}</Title>
-            <Text style={[styles.automationType, { color: theme.colors.onSurfaceVariant }]}>{automation.type}</Text>
+            <Title style={[styles.automationName, { color: theme.colors.onSurface }]}>{automationToUse.name}</Title>
+            <Text style={[styles.automationType, { color: theme.colors.onSurfaceVariant }]}>{automationToUse.type}</Text>
           </View>
           <Switch
-            value={automation.status === 'RUNNING'}
+            value={automationToUse.status === 'RUNNING'}
             onValueChange={handleToggleAutomation}
             trackColor={{ false: '#767577', true: '#4F43DD' }}
             thumbColor={automation.status === 'RUNNING' ? '#ffffff' : '#f4f3f4'}
           />
         </View>
-        {automation.description && (
-          <Text style={[styles.automationDescription, { color: theme.colors.onSurfaceVariant }]}>{automation.description}</Text>
+        {automationToUse.description && (
+          <Text style={[styles.automationDescription, { color: theme.colors.onSurfaceVariant }]}>{automationToUse.description}</Text>
         )}
       </View>
 
@@ -369,7 +539,7 @@ const AutomationDetailScreen: React.FC<AutomationDetailScreenProps> = ({ navigat
           value={activeTab}
           onValueChange={setActiveTab}
           buttons={[
-            { value: 'history', label: automation.type === 'schedule' ? 'Tick History' : 'Evaluations' },
+            { value: 'history', label: automationToUse.type === 'schedule' ? 'Tick History' : 'Evaluations' },
             { value: 'runs', label: 'Runs' }
           ]}
           style={styles.tabButtons}

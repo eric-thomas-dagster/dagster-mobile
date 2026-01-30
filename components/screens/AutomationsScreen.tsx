@@ -6,6 +6,7 @@ import { useQuery, useLazyQuery, useMutation, useApolloClient } from '@apollo/cl
 import { GET_SCHEDULES, GET_SENSORS, GET_REPOSITORIES, START_SENSOR, STOP_SENSOR, START_SCHEDULE, STOP_SCHEDULE } from '../../lib/graphql/queries';
 import { ScheduleResult, SensorResult, RepositorySelector, Repository, SensorSelector, ScheduleSelector } from '../../lib/types/dagster';
 import { useTheme } from '../ThemeProvider';
+import { isPermissionError, getPermissionErrorMessage, extractErrorMessage } from '../../lib/utils/errorUtils';
 import Svg, { Path } from 'react-native-svg';
 
 const SensorIcon = ({ color, size }: { color: string; size: number }) => (
@@ -250,6 +251,22 @@ const AutomationsScreen: React.FC<AutomationsScreenProps> = ({ navigation, route
         
         console.log('Sensor toggle result:', result);
         
+        // Check for errors in the response
+        const response = newValue ? result.data?.startSensor : result.data?.stopSensor;
+        
+        if (response?.__typename === 'UnauthorizedError') {
+          Alert.alert(
+            'Permission Denied',
+            response.message || getPermissionErrorMessage(`${newValue ? 'start' : 'stop'} sensors`)
+          );
+          return;
+        }
+        
+        if (response?.__typename === 'PythonError') {
+          Alert.alert('Error', response.message || 'An error occurred');
+          return;
+        }
+        
         // Check for successful response
         const sensorState = result.data?.startSensor?.sensorState;
         const instigationState = result.data?.stopSensor?.instigationState;
@@ -278,7 +295,13 @@ const AutomationsScreen: React.FC<AutomationsScreenProps> = ({ navigation, route
           await client.clearStore();
           setTimeout(() => onRefresh(), 500);
         } else if (result.errors) {
-          Alert.alert('Error', result.errors[0]?.message || `Failed to ${newValue ? 'start' : 'stop'} sensor`);
+          const errorMsg = isPermissionError(result.errors[0]) 
+            ? getPermissionErrorMessage(`${newValue ? 'start' : 'stop'} sensors`)
+            : extractErrorMessage(result.errors[0]);
+          Alert.alert(
+            isPermissionError(result.errors[0]) ? 'Permission Denied' : 'Error',
+            errorMsg
+          );
         }
       } else if (automation.type === 'schedule') {
         const result = newValue 
@@ -295,6 +318,22 @@ const AutomationsScreen: React.FC<AutomationsScreenProps> = ({ navigation, route
         
         console.log('Schedule toggle result:', result);
         
+        // Check for errors in the response
+        const response = newValue ? result.data?.startSchedule : result.data?.resetSchedule;
+        
+        if (response?.__typename === 'UnauthorizedError') {
+          Alert.alert(
+            'Permission Denied',
+            response.message || getPermissionErrorMessage(`${newValue ? 'start' : 'stop'} schedules`)
+          );
+          return;
+        }
+        
+        if (response?.__typename === 'PythonError') {
+          Alert.alert('Error', response.message || 'An error occurred');
+          return;
+        }
+        
         // Check for successful response
         const scheduleResult = result.data?.startSchedule || result.data?.resetSchedule;
         if (scheduleResult && scheduleResult.__typename === 'ScheduleMutationResult') {
@@ -308,12 +347,26 @@ const AutomationsScreen: React.FC<AutomationsScreenProps> = ({ navigation, route
           await client.clearStore();
           onRefresh();
         } else if (result.errors) {
-          Alert.alert('Error', result.errors[0]?.message || `Failed to ${newValue ? 'start' : 'stop'} schedule`);
+          const errorMsg = isPermissionError(result.errors[0]) 
+            ? getPermissionErrorMessage(`${newValue ? 'start' : 'stop'} schedules`)
+            : extractErrorMessage(result.errors[0]);
+          Alert.alert(
+            isPermissionError(result.errors[0]) ? 'Permission Denied' : 'Error',
+            errorMsg
+          );
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error toggling automation:', error);
-      Alert.alert('Error', 'Failed to toggle automation');
+      
+      const errorMsg = isPermissionError(error) 
+        ? getPermissionErrorMessage(`${newValue ? 'start' : 'stop'} ${automation.type}s`)
+        : extractErrorMessage(error);
+      
+      Alert.alert(
+        isPermissionError(error) ? 'Permission Denied' : 'Error',
+        `Failed to toggle automation: ${errorMsg}`
+      );
     }
   };
 
@@ -354,7 +407,7 @@ const AutomationsScreen: React.FC<AutomationsScreenProps> = ({ navigation, route
   
   if (loading) {
     return (
-      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <ActivityIndicator size="large" />
         <Text style={{ color: theme.colors.onSurfaceVariant }}>Loading automations...</Text>
       </SafeAreaView>
@@ -362,7 +415,7 @@ const AutomationsScreen: React.FC<AutomationsScreenProps> = ({ navigation, route
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.outline }]}>
         <Searchbar
           placeholder={`Search ${viewMode}...`}
