@@ -6,7 +6,9 @@ import { addNotification } from './alertStorage';
 // Configure notification behavior
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowAlert: true, // Keep for backwards compatibility
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -122,4 +124,18 @@ export const clearAllNotifications = async (): Promise<void> => {
  */
 export const getLastNotificationResponse = async () => {
   return await Notifications.getLastNotificationResponseAsync();
+};
+
+/**
+ * Get count of unread notifications
+ */
+export const getUnreadCount = async (): Promise<number> => {
+  try {
+    const { loadNotifications } = await import('./alertStorage');
+    const notifications = await loadNotifications();
+    return notifications.filter(n => !n.read).length;
+  } catch (error) {
+    console.error('Error getting unread count:', error);
+    return 0;
+  }
 };
