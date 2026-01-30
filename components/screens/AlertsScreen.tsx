@@ -114,6 +114,8 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
               <Switch
                 value={item.enabled}
                 onValueChange={() => handleToggle(item.id)}
+                trackColor={{ false: '#767577', true: '#4F43DD' }}
+                thumbColor={item.enabled ? '#ffffff' : '#f4f3f4'}
               />
               <IconButton
                 icon="delete"
