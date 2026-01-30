@@ -222,7 +222,9 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
                   • Polling every 15 minutes (not real-time){'\n'}
                   • Local to this device only{'\n'}
                   • Requires app to be installed{'\n'}
-                  • Background fetch may vary by OS
+                  • Background fetch may vary by OS{'\n'}
+                  {'\n'}Recommendation:{'\n'}
+                  For more robust alerting, use Dagster+ email or Slack alerts instead. This app supports opening links from those notifications. Mobile alerts are best for users who specifically want to see Dagster notifications on their device.
                 </Text>
               )}
               <TouchableOpacity onPress={() => setShowInfo(!showInfo)}>
