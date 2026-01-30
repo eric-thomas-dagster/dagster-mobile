@@ -195,16 +195,18 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
         }
         ListHeaderComponent={
           alerts.length > 0 ? (
-            <Button
-              mode="outlined"
-              onPress={handleTestAlerts}
-              style={styles.testButton}
-              loading={testing}
-              disabled={testing}
-              icon="bell-check"
-            >
-              Test Alerts Now
-            </Button>
+            // Uncomment to enable manual alert testing button
+            // <Button
+            //   mode="outlined"
+            //   onPress={handleTestAlerts}
+            //   style={styles.testButton}
+            //   loading={testing}
+            //   disabled={testing}
+            //   icon="bell-check"
+            // >
+            //   Test Alerts Now
+            // </Button>
+            null
           ) : null
         }
         ListEmptyComponent={
