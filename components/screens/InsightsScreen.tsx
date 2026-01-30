@@ -1,12 +1,13 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet, Dimensions, RefreshControl, TouchableOpacity } from 'react-native';
-import { Card, Title, Paragraph, ActivityIndicator, Text } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, Dimensions, RefreshControl, TouchableOpacity, Modal, FlatList } from 'react-native';
+import { Card, Title, Paragraph, ActivityIndicator, Text, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-chart-kit';
 import { useQuery } from '@apollo/client';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../ThemeProvider';
-import { GET_INSIGHTS_ASSETS_SELECTION, GET_INSIGHTS_ASSETS, GET_INSIGHTS_UPDATE_TIME } from '../../lib/graphql/queries';
+import { GET_INSIGHTS_ASSETS_SELECTION, GET_INSIGHTS_ASSETS, GET_INSIGHTS_UPDATE_TIME, GET_CATALOG_VIEWS } from '../../lib/graphql/queries';
+import { CatalogView } from '../../lib/types/dagster';
 
 interface Metric {
   label: string;
@@ -247,6 +248,22 @@ const parseInsightsResponse = (
   // Extract hourly charts
   const hourlyCharts: HourlyChart[] = [];
   
+  // Helper to create sparse labels (show each date only once)
+  const createSparseLabels = (timestamps: number[]) => {
+    const seenDates = new Set<string>();
+    return timestamps.map((ts: number) => {
+      const date = new Date(ts * 1000);
+      const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+
+      // Only show label if we haven't seen this date yet
+      if (!seenDates.has(dateStr)) {
+        seenDates.add(dateStr);
+        return dateStr;
+      }
+      return '';
+    });
+  };
+
   // Materializations by hour
   if (materializationsData?.reportingMetricsByAssetSelection) {
     const data = materializationsData.reportingMetricsByAssetSelection;
@@ -255,15 +272,12 @@ const parseInsightsResponse = (
     if (values.length > 0) {
       hourlyCharts.push({
         title: 'Materializations by hour',
-        labels: timestamps.map((ts: number) => {
-          const date = new Date(ts * 1000);
-          return `${date.getHours()}:00`;
-        }),
+        labels: createSparseLabels(timestamps),
         data: values,
       });
     }
   }
-  
+
   // Failures by hour
   if (failuresData?.reportingMetricsByAssetSelection) {
     const data = failuresData.reportingMetricsByAssetSelection;
@@ -272,15 +286,12 @@ const parseInsightsResponse = (
     if (values.length > 0) {
       hourlyCharts.push({
         title: 'Failures by hour',
-        labels: timestamps.map((ts: number) => {
-          const date = new Date(ts * 1000);
-          return `${date.getHours()}:00`;
-        }),
+        labels: createSparseLabels(timestamps),
         data: values,
       });
     }
   }
-  
+
   // Dagster credits by hour
   if (creditsData?.reportingMetricsByAssetSelection) {
     const data = creditsData.reportingMetricsByAssetSelection;
@@ -289,10 +300,7 @@ const parseInsightsResponse = (
     if (values.length > 0) {
       hourlyCharts.push({
         title: 'Dagster credits by hour',
-        labels: timestamps.map((ts: number) => {
-          const date = new Date(ts * 1000);
-          return `${date.getHours()}:00`;
-        }),
+        labels: createSparseLabels(timestamps),
         data: values,
       });
     }
@@ -394,9 +402,14 @@ const parseInsightsResponse = (
 
 const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
-  const { after, before } = getTimeRange();
   const [shouldFetch, setShouldFetch] = React.useState(false);
-  
+  const [selectedView, setSelectedView] = React.useState<'all' | string>('all');
+  const [menuVisible, setMenuVisible] = React.useState(false);
+  const [refreshKey, setRefreshKey] = React.useState(0);
+
+  // Memoize time range to prevent queries from refetching on every render
+  const { after, before } = React.useMemo(() => getTimeRange(), [refreshKey]);
+
   // Only fetch data when screen is focused
   useFocusEffect(
     React.useCallback(() => {
@@ -406,44 +419,80 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
       };
     }, [])
   );
-  
-  // Common variables for queries
-  const commonVariables = {
-    metricsFilter: { assetSelection: '' },
-    metricsStoreType: 'VICTORIA_METRICS' as const,
+
+  // Query for catalog views
+  const { data: catalogViewsData } = useQuery(GET_CATALOG_VIEWS, {
+    errorPolicy: 'all',
+  });
+
+  // Get the asset selection string based on selected view - memoized to prevent unnecessary refetches
+  const assetSelection = React.useMemo(() => {
+    if (selectedView === 'all') return '';
+
+    const catalogViews = catalogViewsData?.catalogViews;
+    if (!catalogViews) return '';
+
+    const selectedCatalogView = catalogViews.find((v: CatalogView) => v.id === selectedView);
+    if (!selectedCatalogView) return '';
+
+    // Use the querySelection from the catalog view
+    return selectedCatalogView.selection?.querySelection || '';
+  }, [selectedView, catalogViewsData]);
+
+  // Get selected view name for display
+  const getSelectedViewName = () => {
+    if (selectedView === 'all') return 'All Assets';
+
+    const catalogViews = catalogViewsData?.catalogViews;
+    if (catalogViews) {
+      const view = catalogViews.find((v: CatalogView) => v.id === selectedView);
+      return view ? view.name : 'All Assets';
+    }
+    return 'All Assets';
   };
-  
+
+  // Common variables for queries - memoized to prevent unnecessary refetches
+  const commonVariables = React.useMemo(() => ({
+    metricsFilter: { assetSelection },
+    metricsStoreType: 'VICTORIA_METRICS' as const,
+  }), [assetSelection]);
+
+  // Memoize query variables to prevent unnecessary refetches
+  const materializationsVariables = React.useMemo(() => ({
+    ...commonVariables,
+    metricsSelector: {
+      metricName: '__dagster_materializations',
+      after,
+      before,
+      granularity: 'HOURLY',
+      aggregationFunction: 'SUM',
+      sortTarget: ['AGGREGATION_VALUE'],
+      sortDirection: ['DESCENDING'],
+    },
+  }), [commonVariables, after, before]);
+
   // Fetch all the different metrics - only when screen is focused
   const { data: materializationsData, loading: matLoading, refetch: refetchMat } = useQuery(GET_INSIGHTS_ASSETS_SELECTION, {
-    variables: {
-      ...commonVariables,
-      metricsSelector: {
-        metricName: '__dagster_materializations',
-        after,
-        before,
-        granularity: 'HOURLY',
-        aggregationFunction: 'SUM',
-        sortTarget: ['AGGREGATION_VALUE'],
-        sortDirection: ['DESCENDING'],
-      },
-    },
+    variables: materializationsVariables,
     errorPolicy: 'all',
     skip: !shouldFetch,
   });
   
-  const { data: failuresData, loading: failLoading, refetch: refetchFail } = useQuery(GET_INSIGHTS_ASSETS_SELECTION, {
-    variables: {
-      ...commonVariables,
-      metricsSelector: {
-        metricName: '__dagster_failed_to_materialize',
-        after,
-        before,
-        granularity: 'HOURLY',
-        aggregationFunction: 'SUM',
-        sortTarget: ['AGGREGATION_VALUE'],
-        sortDirection: ['DESCENDING'],
-      },
+  const failuresVariables = React.useMemo(() => ({
+    ...commonVariables,
+    metricsSelector: {
+      metricName: '__dagster_failed_to_materialize',
+      after,
+      before,
+      granularity: 'HOURLY',
+      aggregationFunction: 'SUM',
+      sortTarget: ['AGGREGATION_VALUE'],
+      sortDirection: ['DESCENDING'],
     },
+  }), [commonVariables, after, before]);
+
+  const { data: failuresData, loading: failLoading, refetch: refetchFail } = useQuery(GET_INSIGHTS_ASSETS_SELECTION, {
+    variables: failuresVariables,
     errorPolicy: 'all',
     skip: !shouldFetch,
   });
@@ -587,7 +636,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
   // Fetch asset breakdown data for different metrics
   const { data: assetsMaterializationsData, loading: assetsMatLoading, refetch: refetchAssetsMat } = useQuery(GET_INSIGHTS_ASSETS, {
     variables: {
-      metricsFilter: { assetSelection: '', limit: 1000 },
+      metricsFilter: { assetSelection, limit: 1000 },
       metricsSelector: {
         metricName: '__dagster_materializations',
         after,
@@ -605,7 +654,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
 
   const { data: assetsFailuresData, loading: assetsFailLoading, refetch: refetchAssetsFail } = useQuery(GET_INSIGHTS_ASSETS, {
     variables: {
-      metricsFilter: { assetSelection: '', limit: 1000 },
+      metricsFilter: { assetSelection, limit: 1000 },
       metricsSelector: {
         metricName: '__dagster_failed_to_materialize',
         after,
@@ -623,7 +672,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
 
   const { data: assetsCreditsData, loading: assetsCreditsLoading, refetch: refetchAssetsCredits } = useQuery(GET_INSIGHTS_ASSETS, {
     variables: {
-      metricsFilter: { assetSelection: '', limit: 1000 },
+      metricsFilter: { assetSelection, limit: 1000 },
       metricsSelector: {
         metricName: '__dagster_dagster_credits',
         after,
@@ -641,7 +690,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
 
   const { data: assetsExecutionTimeData, loading: assetsExecTimeLoading, refetch: refetchAssetsExecTime } = useQuery(GET_INSIGHTS_ASSETS, {
     variables: {
-      metricsFilter: { assetSelection: '', limit: 1000 },
+      metricsFilter: { assetSelection, limit: 1000 },
       metricsSelector: {
         metricName: '__dagster_execution_time_per_asset_ms',
         after,
@@ -659,7 +708,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
 
   const { data: assetsRetriesData, loading: assetsRetriesLoading, refetch: refetchAssetsRetries } = useQuery(GET_INSIGHTS_ASSETS, {
     variables: {
-      metricsFilter: { assetSelection: '', limit: 1000 },
+      metricsFilter: { assetSelection, limit: 1000 },
       metricsSelector: {
         metricName: '__dagster_step_retries',
         after,
@@ -677,7 +726,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
 
   const { data: assetsCheckErrorsData, loading: assetsCheckErrorsLoading, refetch: refetchAssetsCheckErrors } = useQuery(GET_INSIGHTS_ASSETS, {
     variables: {
-      metricsFilter: { assetSelection: '', limit: 1000 },
+      metricsFilter: { assetSelection, limit: 1000 },
       metricsSelector: {
         metricName: '__dagster_asset_check_errors',
         after,
@@ -695,7 +744,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
 
   const { data: assetsCheckWarningsData, loading: assetsCheckWarningsLoading, refetch: refetchAssetsCheckWarnings } = useQuery(GET_INSIGHTS_ASSETS, {
     variables: {
-      metricsFilter: { assetSelection: '', limit: 1000 },
+      metricsFilter: { assetSelection, limit: 1000 },
       metricsSelector: {
         metricName: '__dagster_asset_check_warnings',
         after,
@@ -713,7 +762,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
 
   const { data: assetsFreshnessFailuresData, loading: assetsFreshnessFailuresLoading, refetch: refetchAssetsFreshnessFailures } = useQuery(GET_INSIGHTS_ASSETS, {
     variables: {
-      metricsFilter: { assetSelection: '', limit: 1000 },
+      metricsFilter: { assetSelection, limit: 1000 },
       metricsSelector: {
         metricName: '__dagster_freshness_failures',
         after,
@@ -783,6 +832,8 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
   ]);
 
   const onRefresh = React.useCallback(async () => {
+    // Update refresh key to recalculate time range
+    setRefreshKey(prev => prev + 1);
     await Promise.all([
     refetchMat(),
     refetchFail(),
@@ -832,13 +883,19 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
     decimalPlaces: 0,
     color: (opacity = 1) => `rgba(${theme.dark ? '255, 255, 255' : '79, 67, 221'}, ${opacity})`,
     labelColor: (opacity = 1) => `rgba(${theme.dark ? '255, 255, 255' : '0, 0, 0'}, ${opacity})`,
+    strokeWidth: 2,
     style: {
       borderRadius: 16,
     },
     propsForDots: {
-      r: '4',
-      strokeWidth: '2',
-      stroke: theme.colors.primary,
+      r: '0',
+      strokeWidth: '0',
+      stroke: 'transparent',
+    },
+    propsForBackgroundLines: {
+      strokeWidth: 1,
+      stroke: theme.dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+      strokeDasharray: '0',
     },
   };
 
@@ -869,11 +926,18 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
         </Text>
         {metric.previousValue && (
           <View style={styles.metricComparison}>
-            <Text style={[styles.metricPrevious, { color: theme.colors.onSurfaceVariant }]}>
+            <Text
+              style={[styles.metricPrevious, { color: theme.colors.onSurfaceVariant }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {metric.previousValue}
             </Text>
             {changeText && (
-              <Text style={[styles.metricChange, { color: changeColor }]}>
+              <Text
+                style={[styles.metricChange, { color: changeColor }]}
+                numberOfLines={1}
+              >
                 {changeText}
               </Text>
             )}
@@ -911,10 +975,13 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
               chartConfig={defaultChartConfig}
               bezier
               style={styles.chart}
-              withInnerLines={true}
-              withOuterLines={true}
+              withInnerLines={false}
+              withOuterLines={false}
               withVerticalLabels={true}
               withHorizontalLabels={true}
+              withDots={false}
+              withShadow={false}
+              fromZero={true}
             />
           </View>
         </Card.Content>
@@ -983,6 +1050,72 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+        <Button
+          mode="outlined"
+          onPress={() => setMenuVisible(true)}
+          style={styles.viewButton}
+          textColor={theme.colors.onSurface}
+          icon="chevron-down"
+        >
+          {getSelectedViewName()}
+        </Button>
+
+        <Modal
+          visible={menuVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setMenuVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>
+                  Select View
+                </Text>
+                <TouchableOpacity onPress={() => setMenuVisible(false)}>
+                  <Text style={[styles.closeButton, { color: theme.colors.primary }]}>
+                    ✕
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <FlatList
+                data={[
+                  { id: 'all', name: 'All Assets' },
+                  ...(catalogViewsData?.catalogViews?.map((view: CatalogView) => ({
+                    id: view.id,
+                    name: view.name
+                  })) || [])
+                ]}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedView(item.id);
+                      setMenuVisible(false);
+                    }}
+                    style={[
+                      styles.modalItem,
+                      selectedView === item.id && { backgroundColor: theme.colors.primaryContainer }
+                    ]}
+                  >
+                    <Text style={[
+                      styles.modalItemText,
+                      { color: theme.colors.onSurface },
+                      selectedView === item.id && { color: theme.colors.onPrimaryContainer }
+                    ]}>
+                      {item.name}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                style={styles.modalList}
+              />
+            </View>
+          </View>
+        </Modal>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         refreshControl={
@@ -1064,6 +1197,51 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  header: {
+    padding: 8,
+  },
+  viewButton: {
+    alignSelf: 'flex-start',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    maxHeight: '70%',
+    borderRadius: 12,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  modalList: {
+    maxHeight: 300,
+  },
+  modalItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalItemText: {
+    fontSize: 16,
+  },
   scrollView: {
     flex: 1,
   },
@@ -1115,13 +1293,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'nowrap',
   },
   metricPrevious: {
     fontSize: 11,
+    flex: 1,
+    flexShrink: 1,
   },
   metricChange: {
     fontSize: 11,
     fontWeight: '600',
+    flexShrink: 0,
+    marginLeft: 4,
   },
   chartTitle: {
     fontSize: 16,

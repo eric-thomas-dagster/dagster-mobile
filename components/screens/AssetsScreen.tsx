@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, TouchableOpacity, Pressable, Modal } from 'react-native';
-import { Card, Title, Paragraph, ActivityIndicator, Text, Searchbar, SegmentedButtons, Menu, Button } from 'react-native-paper';
+import { View, FlatList, StyleSheet, RefreshControl, TouchableOpacity, Pressable, Modal, ScrollView } from 'react-native';
+import { Card, Title, Paragraph, ActivityIndicator, Text, Searchbar, Chip, Menu, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@apollo/client';
 import { GET_ASSETS, GET_CATALOG_VIEWS, GET_USER_FAVORITE_ASSETS, GET_ASSET_DEPENDENCIES } from '../../lib/graphql/queries';
@@ -73,6 +73,7 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
   const [healthFilter, setHealthFilter] = React.useState<'all' | 'healthy' | 'degraded' | 'warning'>('all');
   const [selectedView, setSelectedView] = React.useState<'all' | 'favorites' | string>('all');
   const [menuVisible, setMenuVisible] = React.useState(false);
+  const [healthMenuVisible, setHealthMenuVisible] = React.useState(false);
   const [dependencyCache, setDependencyCache] = React.useState<Record<string, any>>({});
   const [pendingDependencyFetches, setPendingDependencyFetches] = React.useState<Set<string>>(new Set());
   const hasPreFetchedRef = React.useRef(false);
@@ -148,6 +149,16 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
       return view ? view.name : 'All Assets';
     }
     return 'All Assets';
+  };
+
+  const getHealthFilterName = () => {
+    switch (healthFilter) {
+      case 'all': return 'All';
+      case 'healthy': return 'Healthy';
+      case 'warning': return 'Warning';
+      case 'degraded': return 'Degraded';
+      default: return 'All';
+    }
   };
 
   const isAssetInFavorites = (asset: Asset) => {
@@ -636,7 +647,17 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
           style={styles.searchBar}
         />
         
-        <View style={styles.viewContainer}>
+        <View style={styles.filtersRow}>
+          <Button
+            mode="outlined"
+            onPress={() => setHealthMenuVisible(true)}
+            style={styles.healthFilterButton}
+            textColor={theme.colors.onSurface}
+            icon="chevron-down"
+          >
+            {getHealthFilterName()}
+          </Button>
+
           <Button
             mode="outlined"
             onPress={() => setMenuVisible(true)}
@@ -646,6 +667,59 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
           >
             {getSelectedViewName()}
           </Button>
+          
+          <Modal
+            visible={healthMenuVisible}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setHealthMenuVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>
+                    Select Health Status
+                  </Text>
+                  <TouchableOpacity onPress={() => setHealthMenuVisible(false)}>
+                    <Text style={[styles.closeButton, { color: theme.colors.primary }]}>
+                      ✕
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <FlatList
+                  data={[
+                    { value: 'all', label: 'All' },
+                    { value: 'healthy', label: 'Healthy' },
+                    { value: 'warning', label: 'Warning' },
+                    { value: 'degraded', label: 'Degraded' },
+                  ]}
+                  keyExtractor={(item) => item.value}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setHealthFilter(item.value as 'all' | 'healthy' | 'degraded' | 'warning');
+                        setHealthMenuVisible(false);
+                      }}
+                      style={[
+                        styles.modalItem,
+                        healthFilter === item.value && { backgroundColor: theme.colors.primaryContainer }
+                      ]}
+                    >
+                      <Text style={[
+                        styles.modalItemText,
+                        { color: theme.colors.onSurface },
+                        healthFilter === item.value && { color: theme.colors.onPrimaryContainer }
+                      ]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  style={styles.modalList}
+                />
+              </View>
+            </View>
+          </Modal>
           
           <Modal
             visible={menuVisible}
@@ -702,20 +776,6 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
             </View>
           </Modal>
         </View>
-        
-        <View style={styles.filterContainer}>
-          <SegmentedButtons
-            value={healthFilter}
-            onValueChange={setHealthFilter as (value: string) => void}
-            buttons={[
-              { value: 'all', label: 'All' },
-              { value: 'healthy', label: 'Healthy' },
-              { value: 'warning', label: 'Warning' },
-              { value: 'degraded', label: 'Degraded' },
-            ]}
-            style={styles.healthFilter}
-          />
-        </View>
       </View>
 
       <FlatList
@@ -740,14 +800,20 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   searchBar: {
-    marginBottom: 12,
+    marginBottom: 8,
     elevation: 2,
   },
-  viewContainer: {
-    marginBottom: 16,
+  filtersRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  healthFilterButton: {
+    flexShrink: 1,
   },
   viewButton: {
-    marginBottom: 8,
+    flex: 1,
+    flexShrink: 1,
   },
   modalOverlay: {
     flex: 1,
@@ -789,9 +855,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   filterContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    marginBottom: 8,
   },
 
   menuContainer: {
@@ -808,9 +872,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingVertical: 8,
     paddingHorizontal: 16,
-  },
-  healthFilter: {
-    flex: 1,
   },
   listContainer: {
     paddingBottom: 16,
