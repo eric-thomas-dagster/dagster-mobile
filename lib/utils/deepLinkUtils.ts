@@ -47,26 +47,37 @@ export const parseDagsterUrl = (url: string): ParsedDagsterUrl => {
       // Subdomain format: org.dagster.cloud
       [, organization, deployment, workspace, type, nameOrPath] = match;
     } else {
-      // Pattern 2: https://dagster.cloud/[org]/[deployment]/workspace/[workspace]/[type]/[name]
-      // Example: https://dagster.cloud/hooli/data-eng-prod/workspace/__repository__@hooli_airlift/sensors/sensor_name
-      const directPattern = /https?:\/\/dagster\.cloud\/([^\/]+)\/([^\/]+)\/workspace\/([^\/]+)\/(sensors|schedules|jobs|assets|runs)\/(.+)/;
-      match = normalizedUrl.match(directPattern);
-      
+      // Pattern 1b: https://[org].dagster.cloud/[deployment]/[type]/[name] (subdomain, no workspace)
+      // Example: https://hooli.dagster.cloud/data-eng-prod/runs/082e599d-979a-42da-9942-7b45b6254952
+      const subdomainNoWorkspacePattern = /https?:\/\/([^\/]+)\.dagster\.cloud\/([^\/]+)\/(sensors|schedules|jobs|assets|runs)\/(.+)/;
+      match = normalizedUrl.match(subdomainNoWorkspacePattern);
+
       if (match) {
-        // Direct format: dagster.cloud/org/deployment
-        [, organization, deployment, workspace, type, nameOrPath] = match;
+        // Subdomain format without workspace
+        [, organization, deployment, type, nameOrPath] = match;
+        workspace = '__repository__'; // Default workspace
       } else {
-        // Pattern 3: https://dagster.cloud/[org]/[deployment]/[type]/[name] (without workspace)
-        // Example: https://dagster.cloud/hooli/data-eng-prod/sensors/sensor_name
-        const noWorkspacePattern = /https?:\/\/dagster\.cloud\/([^\/]+)\/([^\/]+)\/(sensors|schedules|jobs|assets|runs)\/(.+)/;
-        match = normalizedUrl.match(noWorkspacePattern);
-        
+        // Pattern 2: https://dagster.cloud/[org]/[deployment]/workspace/[workspace]/[type]/[name]
+        // Example: https://dagster.cloud/hooli/data-eng-prod/workspace/__repository__@hooli_airlift/sensors/sensor_name
+        const directPattern = /https?:\/\/dagster\.cloud\/([^\/]+)\/([^\/]+)\/workspace\/([^\/]+)\/(sensors|schedules|jobs|assets|runs)\/(.+)/;
+        match = normalizedUrl.match(directPattern);
+
         if (match) {
-          // Format: dagster.cloud/org/deployment/type/name (no workspace)
-          [, organization, deployment, type, nameOrPath] = match;
-          workspace = '__repository__'; // Default workspace
+          // Direct format: dagster.cloud/org/deployment
+          [, organization, deployment, workspace, type, nameOrPath] = match;
         } else {
-          return { type: 'unknown', valid: false };
+          // Pattern 3: https://dagster.cloud/[org]/[deployment]/[type]/[name] (without workspace)
+          // Example: https://dagster.cloud/hooli/data-eng-prod/sensors/sensor_name
+          const noWorkspacePattern = /https?:\/\/dagster\.cloud\/([^\/]+)\/([^\/]+)\/(sensors|schedules|jobs|assets|runs)\/(.+)/;
+          match = normalizedUrl.match(noWorkspacePattern);
+
+          if (match) {
+            // Format: dagster.cloud/org/deployment/type/name (no workspace)
+            [, organization, deployment, type, nameOrPath] = match;
+            workspace = '__repository__'; // Default workspace
+          } else {
+            return { type: 'unknown', valid: false };
+          }
         }
       }
     }
