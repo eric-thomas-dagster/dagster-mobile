@@ -9,40 +9,88 @@ A mobile-optimized React Native app for monitoring and observing your Dagster+ e
 - Quick stats on jobs, assets, and recent runs
 - Real-time status indicators
 - Pull-to-refresh functionality
+- Share functionality for easy linking
 
 ### 📦 Assets
 - Browse all assets in your workspace
-- Search and filter assets
+- Search and filter assets by name and health status
 - View asset materialization status
 - Detailed asset information and metadata
-- Materialization history
+- Materialization history with timestamps
+- **Asset-level insights** with interactive charts
+- Health-based filtering (healthy, missing, failed, stale)
+- Catalog view filtering
 
-### ⚙️ Jobs
+### 💼 Jobs
 - List all jobs in your workspace
 - Job status monitoring
 - Schedule and sensor information
 - Detailed job configuration
+- Recent run history per job
+- Quick access to create job-specific alerts
 
 ### 🏃‍♂️ Runs
-- Recent pipeline runs
+- Recent pipeline runs across all jobs
 - Run status and statistics
 - Execution plan details
 - Run history and logs
+- Status-based filtering
+- Detailed run information with timing
+
+### 🤖 Automations
+- Monitor schedules and sensors
+- View auto-materialization policies
+- Filter by automation type
+- Automation execution history
+- Status tracking (running, stopped, etc.)
+
+### 📈 Insights
+- **NEW**: Visual analytics for your Dagster environment
+- Interactive charts showing materialization trends
+- Time-series data for asset materializations
+- Catalog view filtering for focused insights
+- Touch-responsive charts optimized for mobile
+
+### 🔔 Alerts (Mobile-Only)
+- **NEW**: Local mobile alerts for pipeline events
+- Alert types:
+  - Job failure/success notifications
+  - Asset failure/success notifications
+  - Any job failure/success notifications
+- Background polling every 15 minutes
+- Local push notifications
+- Alert management (enable/disable/delete)
+- Smart alert creation from detail screens
+- **Note**: Alerts are local to your device and not synchronized with Dagster+ web UI
+
+### 🔒 Security
+- **Biometric authentication** (Face ID, Touch ID, Fingerprint)
+- Platform-aware authentication prompts
+- Secure token storage with Expo SecureStore
+- Optional authentication bypass for development
 
 ### ⚙️ Settings
 - Configure Dagster+ API connection
-- Customize app preferences
+- Manage multiple deployments
 - Test API connectivity
 - Dark mode support
+- Biometric authentication toggle
+- Clear cache and reset app data
 
 ## Mobile-Optimized Design
 
 - **Touch-friendly interface**: Large buttons and cards optimized for mobile interaction
-- **Responsive layout**: Adapts to different screen sizes
+- **Responsive layout**: Adapts to different screen sizes and orientations
 - **Pull-to-refresh**: Native mobile gesture for data updates
-- **Search functionality**: Quick filtering of assets, jobs, and runs
+- **Search functionality**: Quick filtering of assets, jobs, runs, and automations
 - **Status indicators**: Color-coded badges for quick status recognition
-- **Offline support**: Cached data with graceful error handling
+- **Interactive charts**: Touch-responsive visualizations with sparse labels
+- **Biometric security**: Native Face ID/Touch ID/Fingerprint authentication
+- **Background alerts**: Local notifications via background fetch
+- **Safe area handling**: Proper spacing around device notches and system UI
+- **Platform-aware UI**: iOS and Android specific adaptations
+- **Share functionality**: Easy sharing of run, job, and asset details
+- **Cached data**: Graceful offline handling with stored data
 
 ## Setup Instructions
 
@@ -112,14 +160,24 @@ You can configure these in the Settings screen within the app.
 ```
 dagster-mobile/
 ├── components/
-│   ├── navigation/     # Navigation components
-│   └── screens/        # Screen components
+│   ├── navigation/          # Navigation components
+│   ├── screens/            # Screen components
+│   ├── AssetInsights.tsx   # Asset-level insights component
+│   ├── BiometricAuth.tsx   # Biometric authentication
+│   ├── ShareUrlHandler.tsx # Deep linking handler
+│   └── ThemeProvider.tsx   # Theme context
 ├── lib/
 │   ├── apollo-client.ts    # GraphQL client setup
 │   ├── graphql/
 │   │   └── queries.ts      # GraphQL queries
-│   └── types/
-│       └── dagster.ts      # TypeScript types
+│   ├── types/
+│   │   ├── dagster.ts      # Dagster types
+│   │   └── alerts.ts       # Alert types
+│   └── utils/
+│       ├── alertStorage.ts      # Alert persistence
+│       ├── alertEvaluation.ts   # Alert rule evaluation
+│       ├── backgroundAlerts.ts  # Background fetch
+│       └── notificationUtils.ts # Notification helpers
 ├── config/
 │   └── env.ts             # Environment configuration
 └── App.tsx                # Main app component
@@ -128,11 +186,17 @@ dagster-mobile/
 ### Key Technologies
 
 - **React Native**: Cross-platform mobile development
-- **Expo**: Development platform and tools
+- **Expo SDK 54**: Development platform and tools
 - **Apollo Client**: GraphQL client for data fetching
-- **React Navigation**: Navigation between screens
+- **React Navigation**: Navigation between screens with bottom tabs
 - **React Native Paper**: Material Design components
 - **TypeScript**: Type safety and better development experience
+- **Expo Notifications**: Local push notifications
+- **Expo Background Fetch**: Background task execution for alerts
+- **Expo Local Authentication**: Biometric authentication
+- **Expo SecureStore**: Secure credential storage
+- **AsyncStorage**: Local data persistence
+- **React Native Chart Kit**: Data visualization
 
 ### Adding New Features
 
@@ -145,10 +209,13 @@ dagster-mobile/
 
 The app uses the same GraphQL API as the Dagster+ web interface:
 
-- **Assets**: Query asset definitions, materializations, and metadata
+- **Assets**: Query asset definitions, materializations, metadata, and insights
 - **Jobs**: Query job status, schedules, and sensors
 - **Runs**: Query run history, statistics, and execution plans
+- **Automations**: Query schedules, sensors, and auto-materialization policies
+- **Insights**: Query time-series materialization data
 - **Real-time updates**: Pull-to-refresh for latest data
+- **Background polling**: Periodic checks for alert conditions (every 15 minutes)
 
 ## Deployment
 
@@ -190,10 +257,15 @@ For issues and questions:
 
 ## Roadmap
 
-- [ ] Push notifications for run status changes
-- [ ] Offline mode with data caching
-- [ ] Advanced filtering and sorting
-- [ ] Custom dashboards
-- [ ] Run logs viewer
+- [x] Push notifications for run status changes (via local alerts)
+- [x] Advanced filtering and sorting
+- [x] Data visualization with charts
+- [x] Biometric authentication
+- [x] Dark mode support
+- [ ] Deep linking support (requires server-side configuration)
+- [ ] Run logs viewer with streaming
 - [ ] Asset lineage visualization
-- [ ] Multi-workspace support 
+- [ ] Multi-workspace support
+- [ ] Real-time WebSocket updates
+- [ ] Custom alert conditions
+- [ ] Sync alerts with Dagster+ web UI 
