@@ -72,10 +72,6 @@
     "plugins": [
       "expo-secure-store"
     ],
-    "scheme": "dagster-mobile",
-    "associatedDomains": [
-      "applinks:*.dagster.cloud",
-      "applinks:dagster.cloud"
-    ]
+    "scheme": "dagster-mobile"
   }
 }
