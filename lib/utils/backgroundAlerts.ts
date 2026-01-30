@@ -136,7 +136,10 @@ export const getBackgroundFetchStatus = async (): Promise<BackgroundFetch.Backgr
 /**
  * Manually trigger a background fetch (for testing)
  */
-export const triggerManualFetch = async (): Promise<void> => {
+export const triggerManualFetch = async (isTest: boolean = false): Promise<{ triggered: number; errors: any[] }> => {
+  const errors: any[] = [];
+  let triggered = 0;
+
   try {
     console.log('[BackgroundAlerts] Triggering manual fetch');
     const apolloClient = getApolloClient();
@@ -147,29 +150,53 @@ export const triggerManualFetch = async (): Promise<void> => {
     const alerts = await loadAlerts();
     const enabledAlerts = alerts.filter((a) => a.enabled);
     const lastCheckTime = await loadLastCheckTime();
-    const results = await evaluateAllAlerts(enabledAlerts, apolloClient, lastCheckTime);
+
+    let results;
+    try {
+      results = await evaluateAllAlerts(enabledAlerts, apolloClient, lastCheckTime);
+    } catch (error) {
+      console.error('[BackgroundAlerts] Error evaluating alerts:', error);
+      errors.push(error);
+      // Continue with empty results rather than failing completely
+      results = new Map();
+    }
 
     for (const alert of enabledAlerts) {
-      const result = results.get(alert.id);
-      if (result?.shouldTrigger) {
-        await sendAlertNotification(alert, result);
+      try {
+        const result = results.get(alert.id);
+        if (result?.shouldTrigger) {
+          // Modify message for test alerts
+          const modifiedResult = isTest ? {
+            ...result,
+            message: `[TEST] ${result.message}`,
+          } : result;
+
+          await sendAlertNotification(alert, modifiedResult);
+          triggered++;
+          await updateAlert(alert.id, {
+            lastTriggered: Date.now(),
+            lastTriggeredRunId: result.runId,
+          });
+        }
         await updateAlert(alert.id, {
-          lastTriggered: Date.now(),
-          lastTriggeredRunId: result.runId,
+          lastChecked: Date.now(),
         });
+      } catch (error) {
+        console.error(`[BackgroundAlerts] Error processing alert ${alert.id}:`, error);
+        errors.push(error);
+        // Continue with other alerts
       }
-      await updateAlert(alert.id, {
-        lastChecked: Date.now(),
-      });
     }
 
     await saveLastCheckTime(Date.now());
     const unreadCount = await getUnreadCount();
     await updateBadgeCount(unreadCount);
 
-    console.log('[BackgroundAlerts] Manual fetch completed');
+    console.log(`[BackgroundAlerts] Manual fetch completed. Triggered: ${triggered}, Errors: ${errors.length}`);
+    return { triggered, errors };
   } catch (error) {
-    console.error('[BackgroundAlerts] Error in manual fetch:', error);
-    throw error;
+    console.error('[BackgroundAlerts] Critical error in manual fetch:', error);
+    errors.push(error);
+    return { triggered, errors };
   }
 };

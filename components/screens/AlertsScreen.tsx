@@ -61,12 +61,24 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
   const handleTestAlerts = async () => {
     setTesting(true);
     try {
-      await triggerManualFetch();
-      RNAlert.alert(
-        'Alert Check Complete',
-        'Alerts have been evaluated. Check your notifications if any alerts were triggered.',
-        [{ text: 'OK' }]
-      );
+      const result = await triggerManualFetch(true); // Pass true to indicate test mode
+
+      if (result.triggered > 0) {
+        RNAlert.alert(
+          'Test Alerts Sent',
+          `${result.triggered} test alert${result.triggered > 1 ? 's' : ''} sent. Check your notifications.${result.errors.length > 0 ? '\n\nNote: Some alerts had errors but were still processed.' : ''}`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        RNAlert.alert(
+          'No Alerts Triggered',
+          result.errors.length > 0
+            ? 'No alerts were triggered. Some errors occurred during evaluation, but alert checking completed.'
+            : 'No alerts were triggered. Your alerts are working, but no conditions were met.',
+          [{ text: 'OK' }]
+        );
+      }
+
       await loadAlertsData(); // Refresh to show updated lastChecked times
     } catch (error) {
       console.error('Error testing alerts:', error);
