@@ -3,6 +3,7 @@ import { View, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-nat
 import { TextInput, Button, SegmentedButtons, Text, Card, Chip, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { useTheme } from '../ThemeProvider';
 import { AlertRule, AlertType } from '../../lib/types/alerts';
 import { addAlert } from '../../lib/utils/alertStorage';
@@ -22,6 +23,7 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
   const [saving, setSaving] = React.useState(false);
   const [showInfo, setShowInfo] = React.useState(false);
   const [infoBannerDismissed, setInfoBannerDismissed] = React.useState(false);
+  const [sendingSample, setSendingSample] = React.useState(false);
 
   // Pre-fill from route params if navigated from detail screen
   const { targetId, targetName, suggestedType } = route.params || {};
@@ -89,6 +91,48 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
 
   const handleShowInfo = () => {
     setInfoBannerDismissed(false);
+  };
+
+  const handleSendSampleAlert = async () => {
+    setSendingSample(true);
+
+    try {
+      // Request notification permissions
+      const hasPermission = await requestNotificationPermissions();
+      if (!hasPermission) {
+        Alert.alert(
+          'Permissions Required',
+          'Notification permissions are required to send sample alerts. Please enable them in your device settings.',
+          [{ text: 'OK' }]
+        );
+        setSendingSample(false);
+        return;
+      }
+
+      // Send a sample notification
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Sample Alert',
+          body: name.trim() || 'This is a test notification for your alert',
+          data: {
+            type: 'sample',
+            alertType: alertType,
+          },
+        },
+        trigger: null, // Send immediately
+      });
+
+      Alert.alert(
+        'Sample Alert Sent',
+        'Check your notifications to see how the alert will appear.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error sending sample alert:', error);
+      Alert.alert('Error', 'Failed to send sample alert. Please try again.');
+    } finally {
+      setSendingSample(false);
+    }
   };
 
   const handleSave = async () => {
@@ -292,6 +336,17 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
           </Card.Content>
         </Card>
 
+        <Button
+          mode="outlined"
+          onPress={handleSendSampleAlert}
+          style={styles.sampleButton}
+          loading={sendingSample}
+          disabled={sendingSample || saving}
+          icon="bell-ring"
+        >
+          Send Sample Alert
+        </Button>
+
         <View style={styles.actions}>
           <Button
             mode="outlined"
@@ -395,10 +450,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 8,
   },
+  sampleButton: {
+    marginTop: 16,
+  },
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 24,
+    marginTop: 16,
     gap: 16,
   },
   actionButton: {
