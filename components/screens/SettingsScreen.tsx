@@ -289,7 +289,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, , { edges={['top']} backgroundColor: theme.colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       {showLinkHandlingPrompt && (
         <LinkHandlingPrompt onDismiss={() => setShowLinkHandlingPrompt(false)} />
       )}
