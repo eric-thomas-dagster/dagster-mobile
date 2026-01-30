@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, Alert as RNAlert } from 'react-native';
-import { Card, Title, Text, FAB, IconButton, Switch, Chip } from 'react-native-paper';
+import { View, FlatList, StyleSheet, RefreshControl, Alert as RNAlert, Switch } from 'react-native';
+import { Card, Title, Text, FAB, IconButton, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeProvider';
 import { AlertRule } from '../../lib/types/alerts';
@@ -114,7 +114,6 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
               <Switch
                 value={item.enabled}
                 onValueChange={() => handleToggle(item.id)}
-                color={theme.colors.primary}
               />
               <IconButton
                 icon="delete"
