@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, Alert as RNAlert, Switch } from 'react-native';
-import { Card, Title, Text, FAB, IconButton, Chip } from 'react-native-paper';
+import { Card, Title, Text, FAB, IconButton, Chip, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeProvider';
 import { AlertRule } from '../../lib/types/alerts';
 import { loadAlerts, deleteAlert, toggleAlert } from '../../lib/utils/alertStorage';
+import { triggerManualFetch } from '../../lib/utils/backgroundAlerts';
 import { useFocusEffect } from '@react-navigation/native';
 
 interface AlertsScreenProps {
@@ -15,6 +16,7 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
   const [alerts, setAlerts] = React.useState<AlertRule[]>([]);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [testing, setTesting] = React.useState(false);
 
   const loadAlertsData = async () => {
     const loadedAlerts = await loadAlerts();
@@ -54,6 +56,28 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
         },
       ]
     );
+  };
+
+  const handleTestAlerts = async () => {
+    setTesting(true);
+    try {
+      await triggerManualFetch();
+      RNAlert.alert(
+        'Alert Check Complete',
+        'Alerts have been evaluated. Check your notifications if any alerts were triggered.',
+        [{ text: 'OK' }]
+      );
+      await loadAlertsData(); // Refresh to show updated lastChecked times
+    } catch (error) {
+      console.error('Error testing alerts:', error);
+      RNAlert.alert(
+        'Error',
+        'Failed to test alerts. Make sure you have a valid API connection.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setTesting(false);
+    }
   };
 
   const getAlertTypeLabel = (type: string): string => {
@@ -157,6 +181,20 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        ListHeaderComponent={
+          alerts.length > 0 ? (
+            <Button
+              mode="outlined"
+              onPress={handleTestAlerts}
+              style={styles.testButton}
+              loading={testing}
+              disabled={testing}
+              icon="bell-check"
+            >
+              Test Alerts Now
+            </Button>
+          ) : null
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
@@ -188,6 +226,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 100,
+  },
+  testButton: {
+    marginBottom: 16,
   },
   card: {
     marginBottom: 12,
