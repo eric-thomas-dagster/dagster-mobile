@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Button } from 'react-native-paper';
-import { View, Text, AppState, AppStateStatus } from 'react-native';
+import { View, Text, AppState, AppStateStatus, Alert } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as Clipboard from 'expo-clipboard';
 import * as Notifications from 'expo-notifications';
@@ -553,6 +553,26 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ isFirstRun = false, onFirst
     const parsed = parseDagsterUrl(processedUrl);
     if (!parsed.valid) {
       console.warn('Invalid Dagster URL:', processedUrl);
+
+      // Check if it's a Dagster URL that we just don't support yet
+      if (processedUrl.includes('dagster.cloud')) {
+        Alert.alert(
+          'Unsupported Link',
+          'This Dagster+ link is not yet supported in the mobile app. Would you like to open it in your browser?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Open in Browser',
+              onPress: () => {
+                Linking.openURL(processedUrl).catch((err) => {
+                  console.error('Error opening URL:', err);
+                  Alert.alert('Error', 'Failed to open URL in browser');
+                });
+              },
+            },
+          ]
+        );
+      }
       return;
     }
     
@@ -590,9 +610,29 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ isFirstRun = false, onFirst
     const navParams = getNavigationParams(parsed);
     if (!navParams || !navigationRef.current) {
       console.warn('Could not get navigation params or navigation ref not ready');
+
+      // Offer to open in browser if we can't navigate
+      if (processedUrl.includes('dagster.cloud')) {
+        Alert.alert(
+          'Cannot Navigate',
+          'Unable to navigate to this screen in the mobile app. Would you like to open it in your browser?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Open in Browser',
+              onPress: () => {
+                Linking.openURL(processedUrl).catch((err) => {
+                  console.error('Error opening URL:', err);
+                  Alert.alert('Error', 'Failed to open URL in browser');
+                });
+              },
+            },
+          ]
+        );
+      }
       return;
     }
-    
+
     // Navigate to the appropriate screen
     try {
       navigationRef.current.navigate(navParams.tab, {
@@ -601,6 +641,24 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ isFirstRun = false, onFirst
       });
     } catch (error) {
       console.error('Error navigating to deep link:', error);
+
+      // Offer to open in browser if navigation fails
+      Alert.alert(
+        'Navigation Error',
+        'Failed to navigate to this screen. Would you like to open it in your browser?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Open in Browser',
+            onPress: () => {
+              Linking.openURL(processedUrl).catch((err) => {
+                console.error('Error opening URL:', err);
+                Alert.alert('Error', 'Failed to open URL in browser');
+              });
+            },
+          },
+        ]
+      );
     }
   };
   
