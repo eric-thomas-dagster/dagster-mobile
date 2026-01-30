@@ -54,3 +54,4 @@ build/
 !*.apk
 !*.aab
 !*.ipa
+*.apk
