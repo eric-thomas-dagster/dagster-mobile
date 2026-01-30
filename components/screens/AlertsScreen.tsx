@@ -147,7 +147,7 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <FlatList
         data={alerts}
         renderItem={renderAlert}

@@ -112,7 +112,7 @@ const CreateAlertScreen: React.FC<CreateAlertScreenProps> = ({ navigation, route
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         {/* Info banner about mobile-only alerts */}
         <Card style={[styles.infoCard, { backgroundColor: theme.colors.secondaryContainer }]}>
