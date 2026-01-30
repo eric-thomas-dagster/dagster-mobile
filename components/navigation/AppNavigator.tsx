@@ -7,6 +7,7 @@ import { Button } from 'react-native-paper';
 import { View, Text, AppState, AppStateStatus } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as Clipboard from 'expo-clipboard';
+import * as Notifications from 'expo-notifications';
 import { useTheme } from '../ThemeProvider';
 import Svg, { Path } from 'react-native-svg';
 import DagsterPlusLogo from '../DagsterPlusLogo';
@@ -413,7 +414,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ isFirstRun = false, onFirst
   const { theme } = useTheme();
   const navigationRef = React.useRef<any>(null);
   
-  // Handle deep links
+  // Handle deep links and notifications
   React.useEffect(() => {
     // Handle initial URL (if app was opened from a link)
     Linking.getInitialURL().then((url) => {
@@ -421,12 +422,24 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ isFirstRun = false, onFirst
         handleDeepLink(url);
       }
     });
-    
+
+    // Handle initial notification (if app was opened from a notification)
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        handleNotificationResponse(response);
+      }
+    });
+
     // Handle URLs while app is running
-    const subscription = Linking.addEventListener('url', (event) => {
+    const linkingSubscription = Linking.addEventListener('url', (event) => {
       handleDeepLink(event.url);
     });
-    
+
+    // Handle notification taps while app is running
+    const notificationSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      handleNotificationResponse(response);
+    });
+
     // Check clipboard when app comes to foreground (for "Share to App" functionality)
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
@@ -442,15 +455,62 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ isFirstRun = false, onFirst
         }, 500);
       }
     };
-    
+
     const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
-    
+
     return () => {
-      subscription.remove();
+      linkingSubscription.remove();
+      notificationSubscription.remove();
       appStateSubscription.remove();
     };
   }, []);
   
+  const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
+    console.log('Handling notification tap:', response);
+
+    const data = response.notification.request.content.data;
+    if (!data || !navigationRef.current) {
+      console.warn('No notification data or navigation ref not ready');
+      return;
+    }
+
+    const { type, runId, assetKey } = data;
+
+    try {
+      // Navigate based on alert type
+      switch (type) {
+        case 'JOB_FAILURE':
+        case 'JOB_SUCCESS':
+        case 'ANY_JOB_FAILURE':
+        case 'ANY_JOB_SUCCESS':
+          if (runId) {
+            // Navigate to run detail
+            navigationRef.current.navigate('Runs', {
+              screen: 'RunDetail',
+              params: { runId },
+            });
+          }
+          break;
+
+        case 'ASSET_FAILURE':
+        case 'ASSET_SUCCESS':
+          if (assetKey && Array.isArray(assetKey)) {
+            // Navigate to asset detail
+            navigationRef.current.navigate('Catalog', {
+              screen: 'AssetDetail',
+              params: { assetKey: { path: assetKey } },
+            });
+          }
+          break;
+
+        default:
+          console.warn('Unknown alert type:', type);
+      }
+    } catch (error) {
+      console.error('Error navigating from notification:', error);
+    }
+  };
+
   const handleDeepLink = async (url: string) => {
     console.log('Handling deep link:', url);
     
