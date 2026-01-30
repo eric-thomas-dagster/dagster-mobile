@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
+import * as NavigationBar from 'expo-navigation-bar';
+import { Platform } from 'react-native';
 
 interface ThemeContextType {
   isDarkMode: boolean;
@@ -28,6 +30,25 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   useEffect(() => {
     loadThemePreference();
   }, []);
+
+  // Set navigation bar color based on theme
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      const setNavigationBarColor = async () => {
+        try {
+          const backgroundColor = isDarkMode ? '#121212' : '#FFFFFF';
+          const buttonStyle = isDarkMode ? 'light' : 'dark';
+
+          await NavigationBar.setBackgroundColorAsync(backgroundColor);
+          await NavigationBar.setButtonStyleAsync(buttonStyle);
+        } catch (error) {
+          console.warn('Error setting navigation bar color:', error);
+        }
+      };
+
+      setNavigationBarColor();
+    }
+  }, [isDarkMode]);
 
   const loadThemePreference = async () => {
     try {
