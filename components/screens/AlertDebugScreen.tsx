@@ -3,7 +3,7 @@ import { View, ScrollView, StyleSheet, Alert as RNAlert } from 'react-native';
 import { Card, Title, Text, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeProvider';
-import * as BackgroundFetch from 'expo-background-fetch';
+import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 import { loadAlerts, loadLastCheckTime } from '../../lib/utils/alertStorage';
 import { getApolloClient } from '../../lib/apollo-client';
@@ -22,17 +22,17 @@ const AlertDebugScreen: React.FC = () => {
     };
 
     try {
-      // Check background fetch status
-      const bgStatus = await BackgroundFetch.getStatusAsync();
+      // Check background task status
+      const bgStatus = await BackgroundTask.getStatusAsync();
       const statusText = {
-        [BackgroundFetch.BackgroundFetchStatus.Restricted]: 'Restricted',
-        [BackgroundFetch.BackgroundFetchStatus.Denied]: 'Denied',
-        [BackgroundFetch.BackgroundFetchStatus.Available]: 'Available',
+        [BackgroundTask.BackgroundTaskStatus.Restricted]: 'Restricted',
+        [BackgroundTask.BackgroundTaskStatus.Denied]: 'Denied',
+        [BackgroundTask.BackgroundTaskStatus.Available]: 'Available',
       };
-      info.backgroundFetchStatus = statusText[bgStatus] || 'Unknown';
+      info.backgroundTaskStatus = statusText[bgStatus] || 'Unknown';
 
       // Check if task is registered
-      const isRegistered = await TaskManager.isTaskRegisteredAsync('DAGSTER_ALERTS_BACKGROUND_FETCH');
+      const isRegistered = await TaskManager.isTaskRegisteredAsync('DAGSTER_ALERTS_BACKGROUND_TASK');
       info.taskRegistered = isRegistered;
 
       // Get alerts

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Dagster+ Mobile",
     "slug": "dagster-mobile",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/dagster-icon.png",
     "userInterfaceStyle": "automatic",
@@ -62,7 +62,10 @@
               "pathPrefix": "/"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -75,7 +78,8 @@
       }
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-background-task"
     ],
     "scheme": "dagster-mobile"
   }

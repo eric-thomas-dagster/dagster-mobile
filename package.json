@@ -1,6 +1,6 @@
 {
   "name": "dagster-mobile",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -19,7 +19,7 @@
     "@react-navigation/native": "^7.1.16",
     "@react-navigation/stack": "^7.4.4",
     "expo": "~54.0.0",
-    "expo-background-fetch": "~14.0.9",
+    "expo-background-task": "~1.0.10",
     "expo-clipboard": "~8.0.8",
     "expo-linking": "~8.0.11",
     "expo-local-authentication": "~17.0.8",

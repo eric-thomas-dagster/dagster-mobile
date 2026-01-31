@@ -1,4 +1,4 @@
-import * as BackgroundFetch from 'expo-background-fetch';
+import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 import { ApolloClient, NormalizedCacheObject } from '@apollo/client';
 import {
@@ -11,18 +11,18 @@ import { evaluateAllAlerts } from './alertEvaluation';
 import { sendAlertNotification, updateBadgeCount, getUnreadCount } from './notificationUtils';
 import { getApolloClient } from '../apollo-client';
 
-const BACKGROUND_FETCH_TASK = 'DAGSTER_ALERTS_BACKGROUND_FETCH';
+const BACKGROUND_TASK_NAME = 'DAGSTER_ALERTS_BACKGROUND_TASK';
 
-// Register the background fetch task
-TaskManager.defineTask(BACKGROUND_FETCH_TASK, async () => {
+// Register the background task
+TaskManager.defineTask(BACKGROUND_TASK_NAME, async () => {
   try {
-    console.log('[BackgroundAlerts] Running background fetch task');
+    console.log('[BackgroundAlerts] Running background task');
 
     // Get Apollo client
     const apolloClient = getApolloClient();
     if (!apolloClient) {
       console.error('[BackgroundAlerts] Apollo client not available');
-      return BackgroundFetch.BackgroundFetchResult.Failed;
+      return BackgroundTask.BackgroundTaskResult.Failed;
     }
 
     // Load all alerts
@@ -31,7 +31,7 @@ TaskManager.defineTask(BACKGROUND_FETCH_TASK, async () => {
 
     if (enabledAlerts.length === 0) {
       console.log('[BackgroundAlerts] No enabled alerts');
-      return BackgroundFetch.BackgroundFetchResult.NoData;
+      return BackgroundTask.BackgroundTaskResult.Success;
     }
 
     // Get last check time
@@ -75,62 +75,60 @@ TaskManager.defineTask(BACKGROUND_FETCH_TASK, async () => {
     await updateBadgeCount(unreadCount);
 
     console.log(
-      `[BackgroundAlerts] Background fetch completed. Sent ${notificationsSent} notifications.`
+      `[BackgroundAlerts] Background task completed. Sent ${notificationsSent} notifications.`
     );
 
-    return notificationsSent > 0
-      ? BackgroundFetch.BackgroundFetchResult.NewData
-      : BackgroundFetch.BackgroundFetchResult.NoData;
+    return BackgroundTask.BackgroundTaskResult.Success;
   } catch (error) {
-    console.error('[BackgroundAlerts] Error in background fetch:', error);
-    return BackgroundFetch.BackgroundFetchResult.Failed;
+    console.error('[BackgroundAlerts] Error in background task:', error);
+    return BackgroundTask.BackgroundTaskResult.Failed;
   }
 });
 
 /**
- * Register background fetch task
+ * Register background task
  * Call this once during app initialization
  */
 export const registerBackgroundFetch = async (): Promise<void> => {
   try {
     // Check if task is already registered
-    const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_FETCH_TASK);
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_TASK_NAME);
     if (isRegistered) {
-      console.log('[BackgroundAlerts] Background fetch already registered');
+      console.log('[BackgroundAlerts] Background task already registered');
       return;
     }
 
-    // Register the background fetch task
-    await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
+    // Register the background task
+    await BackgroundTask.registerTaskAsync(BACKGROUND_TASK_NAME, {
       minimumInterval: 15 * 60, // 15 minutes (minimum allowed on iOS)
       stopOnTerminate: false, // Continue running even if app is killed
       startOnBoot: true, // Start on device boot
     });
 
-    console.log('[BackgroundAlerts] Background fetch registered successfully');
+    console.log('[BackgroundAlerts] Background task registered successfully');
   } catch (error) {
-    console.error('[BackgroundAlerts] Error registering background fetch:', error);
+    console.error('[BackgroundAlerts] Error registering background task:', error);
   }
 };
 
 /**
- * Unregister background fetch task
+ * Unregister background task
  * Call this when user disables all alerts or logs out
  */
 export const unregisterBackgroundFetch = async (): Promise<void> => {
   try {
-    await BackgroundFetch.unregisterTaskAsync(BACKGROUND_FETCH_TASK);
-    console.log('[BackgroundAlerts] Background fetch unregistered');
+    await BackgroundTask.unregisterTaskAsync(BACKGROUND_TASK_NAME);
+    console.log('[BackgroundAlerts] Background task unregistered');
   } catch (error) {
-    console.error('[BackgroundAlerts] Error unregistering background fetch:', error);
+    console.error('[BackgroundAlerts] Error unregistering background task:', error);
   }
 };
 
 /**
- * Check background fetch status
+ * Check background task status
  */
-export const getBackgroundFetchStatus = async (): Promise<BackgroundFetch.BackgroundFetchStatus> => {
-  return await BackgroundFetch.getStatusAsync();
+export const getBackgroundFetchStatus = async (): Promise<BackgroundTask.BackgroundTaskStatus> => {
+  return await BackgroundTask.getStatusAsync();
 };
 
 /**
