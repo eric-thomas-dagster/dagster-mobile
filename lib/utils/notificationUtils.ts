@@ -72,6 +72,8 @@ export const sendAlertNotification = async (
         },
         sound: 'default',
         priority: Notifications.AndroidNotificationPriority.HIGH,
+        // Specify the notification channel for Android
+        ...(Platform.OS === 'android' && { channelId: 'alerts' }),
       },
       trigger: null, // Send immediately
     });

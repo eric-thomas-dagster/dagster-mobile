@@ -2,7 +2,7 @@
   "expo": {
     "name": "Dagster+ Mobile",
     "slug": "dagster-mobile",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/dagster-icon.png",
     "userInterfaceStyle": "automatic",
@@ -29,7 +29,9 @@
       "package": "com.dagster.mobile",
       "permissions": [
         "USE_BIOMETRIC",
-        "USE_FINGERPRINT"
+        "USE_FINGERPRINT",
+        "SCHEDULE_EXACT_ALARM",
+        "POST_NOTIFICATIONS"
       ],
       "navigationBar": {
         "visible": true,
@@ -79,7 +81,18 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-background-task"
+      "expo-background-task",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/dagster-icon.png",
+          "color": "#4F43DD",
+          "sounds": [],
+          "mode": "production",
+          "androidMode": "exact",
+          "androidCollapsedTitle": "Dagster+ Alert"
+        }
+      ]
     ],
     "scheme": "dagster-mobile"
   }
