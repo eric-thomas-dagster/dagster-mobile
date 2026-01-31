@@ -29,6 +29,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import InsightsScreen from '../screens/InsightsScreen';
 import AlertsScreen from '../screens/AlertsScreen';
 import CreateAlertScreen from '../screens/CreateAlertScreen';
+import AlertDebugScreen from '../screens/AlertDebugScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -307,6 +308,14 @@ const SettingsStack = () => {
       component={SettingsScreen}
       options={{
         headerTitle: 'Settings',
+        headerTitleAlign: 'left'
+      }}
+    />
+    <Stack.Screen
+      name="AlertDebug"
+      component={AlertDebugScreen}
+      options={{
+        headerTitle: 'Alert Diagnostics',
         headerTitleAlign: 'left'
       }}
     />

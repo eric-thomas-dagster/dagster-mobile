@@ -121,9 +121,9 @@ export const saveLastCheckTime = async (timestamp: number): Promise<void> => {
 export const loadLastCheckTime = async (): Promise<number> => {
   try {
     const timestamp = await AsyncStorage.getItem(LAST_CHECK_KEY);
-    return timestamp ? parseInt(timestamp, 10) : Date.now() - (7 * 24 * 60 * 60 * 1000); // Default to 7 days ago
+    return timestamp ? parseInt(timestamp, 10) : Date.now() - (1 * 60 * 60 * 1000); // Default to 1 hour ago
   } catch (error) {
     console.error('Error loading last check time:', error);
-    return Date.now() - (7 * 24 * 60 * 60 * 1000);
+    return Date.now() - (1 * 60 * 60 * 1000);
   }
 };

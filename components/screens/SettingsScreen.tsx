@@ -484,6 +484,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
           <Text style={styles.aboutText}>
             A mobile-optimized interface for monitoring your Dagster+ environment
           </Text>
+          <Button
+            mode="outlined"
+            onPress={() => navigation.navigate('AlertDebug')}
+            style={styles.button}
+          >
+            Alert System Diagnostics
+          </Button>
         </Card.Content>
       </Card>
 
