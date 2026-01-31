@@ -66,7 +66,8 @@ const RunsScreen: React.FC<RunsScreenProps> = ({ navigation, route }) => {
       const mostRecentRun = pipelineRuns.reduce((latest: any, current: any) => {
         if (!latest || !latest.startTime) return current;
         if (!current.startTime) return latest;
-        return new Date(current.startTime) > new Date(latest.startTime) ? current : latest;
+        // Dagster timestamps are in seconds, convert to milliseconds for comparison
+        return parseFloat(current.startTime) * 1000 > parseFloat(latest.startTime) * 1000 ? current : latest;
       }, null);
       
       if (mostRecentRun) {
