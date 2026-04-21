@@ -538,14 +538,40 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
     
     let assets = data.assetsOrError.nodes;
     
-    // Apply search filter
+    // Apply search filter with simple relevance ranking so a match on the
+    // asset's own name outranks a match that only appears in a description
+    // (which often mentions OTHER upstream/downstream asset names).
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      assets = assets.filter((asset: Asset) => {
-        const path = formatAssetPath(asset.key?.path || []).toLowerCase();
-        const description = asset.definition?.description?.toLowerCase() || '';
-        return path.includes(query) || description.includes(query);
+      type Scored = { asset: Asset; score: number };
+      const scored: Scored[] = (assets as Asset[])
+        .map((asset: Asset): Scored => {
+          const pathArr = asset.key?.path || [];
+          const path = formatAssetPath(pathArr).toLowerCase();
+          const lastSegment = (pathArr[pathArr.length - 1] || '').toLowerCase();
+          const description = asset.definition?.description?.toLowerCase() || '';
+
+          let score = 0;
+          if (lastSegment === query) score = 100;
+          else if (lastSegment.startsWith(query)) score = 80;
+          else if (lastSegment.includes(query)) score = 60;
+          else if (path.includes(query)) score = 40;
+          else if (description.includes(query)) score = 10;
+
+          return { asset, score };
+        })
+        .filter((s: Scored) => s.score > 0);
+
+      scored.sort((a: Scored, b: Scored) => {
+        if (b.score !== a.score) return b.score - a.score;
+        // Tiebreak: shorter path first, then alphabetical
+        const aPath = (a.asset.key?.path || []).join('/');
+        const bPath = (b.asset.key?.path || []).join('/');
+        if (aPath.length !== bPath.length) return aPath.length - bPath.length;
+        return aPath.localeCompare(bPath);
       });
+
+      assets = scored.map((s: Scored) => s.asset);
     }
     
     // Apply health filter
