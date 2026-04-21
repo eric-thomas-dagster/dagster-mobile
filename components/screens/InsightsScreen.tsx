@@ -11,6 +11,7 @@ import { useToast } from '../ToastProvider';
 import { GET_INSIGHTS_ASSETS_SELECTION, GET_INSIGHTS_ASSETS, GET_INSIGHTS_UPDATE_TIME, GET_CATALOG_VIEWS } from '../../lib/graphql/queries';
 import { CatalogView } from '../../lib/types/dagster';
 import { CompassPromptPills } from '../compass/CompassPromptPills';
+import { CatalogViewIcon, getCatalogViewEmoji } from '../icons/CatalogViewIcon';
 
 interface Metric {
   label: string;
@@ -494,6 +495,12 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
       return view ? view.name : 'All Assets';
     }
     return 'All Assets';
+  };
+
+  const getSelectedViewIconKey = (): string | null => {
+    if (selectedView === 'all') return 'asset';
+    const view = catalogViewsData?.catalogViews?.find((v: CatalogView) => v.id === selectedView);
+    return view?.icon ?? null;
   };
 
   // Common variables for queries - memoized to prevent unnecessary refetches
@@ -1117,7 +1124,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
           textColor={theme.colors.onSurface}
           icon="chevron-down"
         >
-          {getSelectedViewName()}
+          {`${getCatalogViewEmoji(getSelectedViewIconKey())}  ${getSelectedViewName()}`}
         </Button>
 
         <Modal
@@ -1141,10 +1148,11 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
 
               <FlatList
                 data={[
-                  { id: 'all', name: 'All Assets' },
+                  { id: 'all', name: 'All Assets', icon: 'asset' },
                   ...(catalogViewsData?.catalogViews?.map((view: CatalogView) => ({
                     id: view.id,
-                    name: view.name
+                    name: view.name,
+                    icon: view.icon,
                   })) || [])
                 ]}
                 keyExtractor={(item) => item.id}
@@ -1156,10 +1164,11 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
                     }}
                     style={[
                       styles.modalItem,
-                      { borderBottomColor: theme.colors.outlineVariant },
+                      { borderBottomColor: theme.colors.outlineVariant, flexDirection: 'row', alignItems: 'center', gap: 10 },
                       selectedView === item.id && { backgroundColor: theme.colors.primaryContainer }
                     ]}
                   >
+                    <CatalogViewIcon icon={item.icon} size={18} />
                     <Text style={[
                       styles.modalItemText,
                       { color: theme.colors.onSurface },

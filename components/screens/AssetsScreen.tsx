@@ -11,6 +11,7 @@ import { CardSkeletonList } from '../SkeletonLoader';
 import EmptyState from '../EmptyState';
 import { useToast } from '../ToastProvider';
 import { CompassPromptPills } from '../compass/CompassPromptPills';
+import { CatalogViewIcon, getCatalogViewEmoji } from '../icons/CatalogViewIcon';
 import Svg, { Path } from 'react-native-svg';
 
 interface AssetsScreenProps {
@@ -153,13 +154,21 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
   const getSelectedViewName = () => {
     if (selectedView === 'all') return 'All Assets';
     if (selectedView === 'favorites') return 'Favorites';
-    
+
     const catalogViews = catalogViewsData?.catalogViews;
     if (catalogViews) {
       const view = catalogViews.find((v: CatalogView) => v.id === selectedView);
       return view ? view.name : 'All Assets';
     }
     return 'All Assets';
+  };
+
+  const getSelectedViewIconKey = (): string | null => {
+    if (selectedView === 'all') return 'asset';
+    if (selectedView === 'favorites') return 'star';
+    const catalogViews = catalogViewsData?.catalogViews;
+    const view = catalogViews?.find((v: CatalogView) => v.id === selectedView);
+    return view?.icon ?? null;
   };
 
   const getHealthFilterName = () => {
@@ -712,7 +721,7 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
             textColor={theme.colors.onSurface}
             icon="chevron-down"
           >
-            {getSelectedViewName()}
+            {`${getCatalogViewEmoji(getSelectedViewIconKey())}  ${getSelectedViewName()}`}
           </Button>
           
           <Modal
@@ -790,11 +799,12 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
                 
                 <FlatList
                   data={[
-                    { id: 'all', name: 'All Assets' },
-                    { id: 'favorites', name: 'Favorites' },
+                    { id: 'all', name: 'All Assets', icon: 'asset' },
+                    { id: 'favorites', name: 'Favorites', icon: 'star' },
                     ...(catalogViewsData?.catalogViews?.map((view: CatalogView) => ({
                       id: view.id,
-                      name: view.name
+                      name: view.name,
+                      icon: view.icon,
                     })) || [])
                   ]}
                   keyExtractor={(item) => item.id}
@@ -806,10 +816,11 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
                       }}
                       style={[
                         styles.modalItem,
-                        { borderBottomColor: theme.colors.outlineVariant },
+                        { borderBottomColor: theme.colors.outlineVariant, flexDirection: 'row', alignItems: 'center', gap: 10 },
                         selectedView === item.id && { backgroundColor: theme.colors.primaryContainer }
                       ]}
                     >
+                      <CatalogViewIcon icon={item.icon} size={18} />
                       <Text style={[
                         styles.modalItemText,
                         { color: theme.colors.onSurface },

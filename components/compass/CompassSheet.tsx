@@ -23,6 +23,16 @@ type Props = {
   onPendingPromptConsumed?: () => void;
 };
 
+// Empty-state starter prompts. Kept broad so they work for any deployment.
+const EMPTY_STATE_SUGGESTIONS = [
+  'Which pipelines have the longest runtimes?',
+  "What's broken right now?",
+  'Summarize the last failed run',
+  'Which assets are consuming the most credits?',
+  'Show me recent asset check failures',
+  'Which assets are stale?',
+];
+
 export const CompassSheet: React.FC<Props> = ({
   visible,
   onClose,
@@ -124,9 +134,30 @@ export const CompassSheet: React.FC<Props> = ({
                   Ask Compass anything about Dagster+
                 </Text>
                 <Text style={[styles.emptyBody, { color: theme.colors.onSurfaceVariant }]}>
-                  Try: "Which pipelines have the longest runtimes?" or "Summarize the last failed
-                  run"
+                  Pick a suggestion to get started, or type your own question below.
                 </Text>
+                <View style={styles.suggestionsWrap}>
+                  {EMPTY_STATE_SUGGESTIONS.map((s) => (
+                    <TouchableOpacity
+                      key={s}
+                      onPress={() => send(s)}
+                      disabled={status === 'streaming'}
+                      style={[
+                        styles.suggestionPill,
+                        {
+                          borderColor: theme.colors.primary,
+                          backgroundColor: theme.colors.surface,
+                          opacity: status === 'streaming' ? 0.5 : 1,
+                        },
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ color: theme.colors.primary, fontSize: 13, fontWeight: '500' }}>
+                        {s}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
             )}
 
@@ -221,6 +252,19 @@ const styles = StyleSheet.create({
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   messageList: { padding: 16, gap: 12 },
   emptyState: { padding: 24, alignItems: 'center' },
+  suggestionsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  suggestionPill: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
   emptyTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8, textAlign: 'center' },
   emptyBody: { fontSize: 13, textAlign: 'center' },
   userBubble: {
