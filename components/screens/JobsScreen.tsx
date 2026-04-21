@@ -11,6 +11,7 @@ import { useTheme } from '../ThemeProvider';
 import { CardSkeletonList } from '../SkeletonLoader';
 import EmptyState from '../EmptyState';
 import { useToast } from '../ToastProvider';
+import { CompassPromptPills } from '../compass/CompassPromptPills';
 import Svg, { Path } from 'react-native-svg';
 
 interface JobsScreenProps {
@@ -449,6 +450,29 @@ const JobsScreen: React.FC<JobsScreenProps> = ({ navigation, route }) => {
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ListHeaderComponent={
+            <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+              <CompassPromptPills
+                prompts={[
+                  {
+                    label: 'Most failure-prone jobs',
+                    prompt:
+                      'Which jobs have the highest failure rate in the last 7 days? Include job name and failure count.',
+                  },
+                  {
+                    label: 'Inactive jobs',
+                    prompt:
+                      "Which jobs haven't run in more than 30 days? Group by code location so I can flag dead code.",
+                  },
+                  {
+                    label: 'Longest-running jobs',
+                    prompt:
+                      'Which jobs have the longest average runtime right now? Rank top 10 with avg and max duration.',
+                  },
+                ]}
+              />
+            </View>
           }
           ListEmptyComponent={
             repositoriesError ? (

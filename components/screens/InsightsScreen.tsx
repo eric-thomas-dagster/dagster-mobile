@@ -10,6 +10,7 @@ import { SkeletonLoader } from '../SkeletonLoader';
 import { useToast } from '../ToastProvider';
 import { GET_INSIGHTS_ASSETS_SELECTION, GET_INSIGHTS_ASSETS, GET_INSIGHTS_UPDATE_TIME, GET_CATALOG_VIEWS } from '../../lib/graphql/queries';
 import { CatalogView } from '../../lib/types/dagster';
+import { CompassPromptPills } from '../compass/CompassPromptPills';
 
 interface Metric {
   label: string;
@@ -1181,6 +1182,32 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
           <RefreshControl refreshing={loading} onRefresh={onRefresh} />
         }
       >
+        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+          <CompassPromptPills
+            prompts={[
+              {
+                label: 'Top credit consumers',
+                prompt:
+                  'Which assets or jobs are consuming the most Dagster+ credits right now, and how has that shifted week-over-week?',
+              },
+              {
+                label: 'Cost trends this week',
+                prompt:
+                  'Summarize Dagster+ credit usage trends for the last 7 days. Are we trending up or down, and what changed?',
+              },
+              {
+                label: 'Slowest materializations',
+                prompt:
+                  'Which assets have the longest materialization times, and are any getting slower over time?',
+              },
+              {
+                label: 'Most failure-prone',
+                prompt:
+                  'Which assets or jobs have the highest failure or retry rate recently? Rank by failure count.',
+              },
+            ]}
+          />
+        </View>
         {/* Top Metrics - Show skeleton or data */}
         {matLoading || failLoading ? (
           <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>

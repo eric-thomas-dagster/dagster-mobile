@@ -10,6 +10,9 @@ import { useLaunchMaterialization, useAssetPartitionInfo } from '../../lib/utils
 import { useTheme } from '../ThemeProvider';
 import { generateDagsterUrl } from '../../lib/utils/shareUtils';
 import AssetInsights from '../AssetInsights';
+import { AISummaryCard } from '../compass/AISummaryCard';
+import { CompassPromptPills } from '../compass/CompassPromptPills';
+import { AI_SUMMARY_FOR_ASSET_MATERIALIZATION_SUBSCRIPTION } from '../../lib/graphql/compass';
 
 interface AssetDetailScreenProps {
   navigation: any;
@@ -610,6 +613,41 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
             )}
           </Card.Content>
         </Card>
+
+        {/* AI summary (gated on ENABLE_AI_SUMMARIES; requires a latest materialization) */}
+        {asset.assetMaterializations?.[0]?.runId && asset.key?.path && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <AISummaryCard
+                subscription={AI_SUMMARY_FOR_ASSET_MATERIALIZATION_SUBSCRIPTION}
+                responseField="aiSummaryForAssetMaterialization"
+                variables={{
+                  runId: asset.assetMaterializations[0].runId,
+                  assetKey: { path: asset.key.path },
+                }}
+                buttonLabel="✨ Summarize latest materialization"
+              />
+              {asset.key?.path && (
+                <CompassPromptPills
+                  prompts={[
+                    {
+                      label: 'Why is it failing?',
+                      prompt: `Explain why the asset "${asset.key.path.join('/')}" has been failing recently and what the root cause is.`,
+                    },
+                    {
+                      label: 'Recent materializations',
+                      prompt: `Summarize the recent materialization history for the asset "${asset.key.path.join('/')}" — frequency, runtimes, failures.`,
+                    },
+                    {
+                      label: 'What depends on this?',
+                      prompt: `What downstream assets and jobs depend on "${asset.key.path.join('/')}"? Who would be affected if it's stale or failing?`,
+                    },
+                  ]}
+                />
+              )}
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Asset Health */}
         {asset.assetHealth && (

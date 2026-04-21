@@ -10,6 +10,7 @@ import { CardSkeletonList } from '../SkeletonLoader';
 import EmptyState from '../EmptyState';
 import { useToast } from '../ToastProvider';
 import { isPermissionError, getPermissionErrorMessage, extractErrorMessage } from '../../lib/utils/errorUtils';
+import { CompassPromptPills } from '../compass/CompassPromptPills';
 import Svg, { Path } from 'react-native-svg';
 
 const SensorIcon = ({ color, size }: { color: string; size: number }) => (
@@ -498,6 +499,49 @@ const AutomationsScreen: React.FC<AutomationsScreenProps> = ({ navigation, route
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         contentContainerStyle={styles.listContainer}
+        ListHeaderComponent={
+          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+            <CompassPromptPills
+              prompts={
+                viewMode === 'sensors'
+                  ? [
+                      {
+                        label: 'Which sensors are failing?',
+                        prompt:
+                          'Which sensors have been failing or erroring the most recently? Include the sensor name and reason.',
+                      },
+                      {
+                        label: 'Slow sensors',
+                        prompt:
+                          'Are any sensors unusually slow or missing ticks? Rank by tick latency and recent miss rate.',
+                      },
+                      {
+                        label: 'Recent tick activity',
+                        prompt:
+                          'Summarize recent sensor tick activity across the deployment — what fired, what skipped, what errored.',
+                      },
+                    ]
+                  : [
+                      {
+                        label: 'Which schedules fail most?',
+                        prompt:
+                          'Which schedules have the highest recent failure rate? Include schedule name and last error.',
+                      },
+                      {
+                        label: 'Upcoming schedules',
+                        prompt:
+                          'What schedules are about to run next? Show the next few fires and which jobs they launch.',
+                      },
+                      {
+                        label: 'Schedule cadence overview',
+                        prompt:
+                          'Give me an overview of schedule cadence in this deployment — how many schedules, how often each runs.',
+                      },
+                    ]
+              }
+            />
+          </View>
+        }
         ListEmptyComponent={
           repositoriesError ? (
             <EmptyState

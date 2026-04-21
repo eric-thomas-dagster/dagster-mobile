@@ -9,6 +9,7 @@ import { formatDagsterDate, formatDagsterTime, formatDagsterDateTime } from '../
 import { mockLogs, mockFailedLogs } from '../../lib/mock-data';
 import { useTheme } from '../ThemeProvider';
 import { generateDagsterUrl } from '../../lib/utils/shareUtils';
+import { CompassPromptPills } from '../compass/CompassPromptPills';
 
 interface RunDetailScreenProps {
   navigation: any;
@@ -194,6 +195,24 @@ const RunDetailScreen: React.FC<RunDetailScreenProps> = ({ navigation, route }) 
                 Ended: {formatDate(run.endTime)} at {formatTime(run.endTime)}
               </Text>
             )}
+            <CompassPromptPills
+              prompts={[
+                ...(run.status === 'FAILURE' || run.status === 'CANCELED'
+                  ? [{
+                      label: 'Why did this fail?',
+                      prompt: `Run ${run.runId} of job "${run.pipelineName}" ended with status ${run.status}. Explain the root cause of the failure, which step failed, and how to fix it.`,
+                    }]
+                  : []),
+                {
+                  label: 'Summarize this run',
+                  prompt: `Summarize what happened in run ${run.runId} of job "${run.pipelineName}". What was materialized, how long did it take, anything unusual?`,
+                },
+                {
+                  label: 'Slowest steps',
+                  prompt: `Which steps in run ${run.runId} of job "${run.pipelineName}" took the longest, and why?`,
+                },
+              ]}
+            />
           </Card.Content>
         </Card>
 

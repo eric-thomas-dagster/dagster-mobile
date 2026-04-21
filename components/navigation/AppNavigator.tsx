@@ -10,6 +10,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../ThemeProvider';
 import Svg, { Path } from 'react-native-svg';
 import DagsterPlusLogo from '../DagsterPlusLogo';
+import { CompassHeaderButton } from '../compass/CompassHeaderButton';
 import { parseDagsterUrl, getNavigationParams } from '../../lib/utils/deepLinkUtils';
 import { updateApolloClientUrl } from '../../lib/apollo-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -111,6 +112,7 @@ const AssetsStack = () => {
         headerTitleStyle: {
           color: theme.colors.onSurface,
         },
+        headerRight: () => <CompassHeaderButton />,
       }}
     >
     <Stack.Screen
@@ -145,6 +147,7 @@ const JobsStack = () => {
         headerTitleStyle: {
           color: theme.colors.onSurface,
         },
+        headerRight: () => <CompassHeaderButton />,
       }}
     >
     <Stack.Screen
@@ -179,6 +182,7 @@ const RunsStack = () => {
         headerTitleStyle: {
           color: theme.colors.onSurface,
         },
+        headerRight: () => <CompassHeaderButton />,
       }}
     >
     <Stack.Screen
@@ -213,6 +217,7 @@ const AutomationStack = () => {
         headerTitleStyle: {
           color: theme.colors.onSurface,
         },
+        headerRight: () => <CompassHeaderButton />,
       }}
     >
           <Stack.Screen
@@ -255,6 +260,7 @@ const HomeStack = () => {
         headerTitleStyle: {
           color: theme.colors.onSurface,
         },
+        headerRight: () => <CompassHeaderButton />,
       }}
     >
     <Stack.Screen
@@ -281,6 +287,7 @@ const SettingsStack = () => {
         headerTitleStyle: {
           color: theme.colors.onSurface,
         },
+        headerRight: () => <CompassHeaderButton />,
       }}
     >
     <Stack.Screen
@@ -307,6 +314,7 @@ const InsightsStack = () => {
         headerTitleStyle: {
           color: theme.colors.onSurface,
         },
+        headerRight: () => <CompassHeaderButton />,
       }}
     >
     <Stack.Screen

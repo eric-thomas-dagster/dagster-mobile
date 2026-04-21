@@ -7,6 +7,7 @@ import { apolloClient, updateApolloClientWithSettings } from './lib/apollo-clien
 import AppNavigator from './components/navigation/AppNavigator';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
 import { ToastProvider } from './components/ToastProvider';
+import { CompassProvider } from './components/compass/CompassProvider';
 import BiometricAuth from './components/BiometricAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -102,7 +103,9 @@ const AppContent = () => {
       <ApolloProvider client={apolloClient}>
         <PaperProvider theme={theme}>
           <ToastProvider>
-            <AppNavigator isFirstRun={isFirstRun} onFirstRunComplete={handleFirstRunComplete} />
+            <CompassProvider>
+              <AppNavigator isFirstRun={isFirstRun} onFirstRunComplete={handleFirstRunComplete} />
+            </CompassProvider>
           </ToastProvider>
         </PaperProvider>
       </ApolloProvider>

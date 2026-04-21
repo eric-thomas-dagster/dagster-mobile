@@ -10,6 +10,7 @@ import { useTheme } from '../ThemeProvider';
 import { CardSkeletonList } from '../SkeletonLoader';
 import EmptyState from '../EmptyState';
 import { useToast } from '../ToastProvider';
+import { CompassPromptPills } from '../compass/CompassPromptPills';
 import Svg, { Path } from 'react-native-svg';
 
 interface AssetsScreenProps {
@@ -809,6 +810,34 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
         }
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+            <CompassPromptPills
+              prompts={[
+                {
+                  label: 'Stale assets',
+                  prompt:
+                    "Which assets in this deployment are stale or haven't been materialized recently? Rank by how far past their freshness policy they are.",
+                },
+                {
+                  label: 'Recently failing',
+                  prompt:
+                    'Which assets have failed to materialize most often in the last 7 days? Include asset key and failure count.',
+                },
+                {
+                  label: 'Assets without owners',
+                  prompt:
+                    'Which assets have no owner assigned? Group by code location so I can see where ownership gaps are.',
+                },
+                {
+                  label: 'Most expensive assets',
+                  prompt:
+                    'Which assets consume the most credits or take the longest to materialize? I want to know where compute cost is concentrated.',
+                },
+              ]}
+            />
+          </View>
+        }
       />
     </SafeAreaView>
   );

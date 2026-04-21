@@ -10,6 +10,8 @@ import { GET_RUNS, GET_JOBS, GET_ASSETS, GET_INSIGHTS_ASSETS_SELECTION } from '.
 import { RepositorySelector, DagsterCloudDeployment } from '../../lib/types/dagster';
 import { mockRuns, mockPipelines, mockAssets } from '../../lib/mock-data';
 import DeploymentSelector from '../DeploymentSelector';
+import { CompassHeaderButton } from '../compass/CompassHeaderButton';
+import { CompassPromptPills } from '../compass/CompassPromptPills';
 import { updateApolloClientUrl } from '../../lib/apollo-client';
 import { formatDagsterDate, formatDagsterTime } from '../../lib/utils/dateUtils';
 import { useTheme } from '../ThemeProvider';
@@ -46,6 +48,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
               {currentDeployment}
             </Button>
           )}
+          <CompassHeaderButton />
           <IconButton
             icon="cog"
             size={24}
@@ -371,6 +374,34 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
             </Card.Content>
           </Card>
         )}
+        {hasConfiguredSettings && (
+          <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+            <CompassPromptPills
+              prompts={[
+                {
+                  label: "What's broken right now?",
+                  prompt:
+                    'What is currently failing or degraded across this deployment — runs, assets, sensors, schedules? Rank by severity.',
+                },
+                {
+                  label: 'Last 24h summary',
+                  prompt:
+                    'Summarize what happened in this deployment in the last 24 hours — materializations, failures, slowdowns, and anything unusual.',
+                },
+                {
+                  label: 'Where are credits going?',
+                  prompt:
+                    'Where is Dagster+ credit consumption concentrated right now? Which assets or jobs are the top spenders this week?',
+                },
+                {
+                  label: 'Health check',
+                  prompt:
+                    'Give me a quick health snapshot of this deployment: freshness status, asset check status, recent failure rate, and anything I should look at.',
+                },
+              ]}
+            />
+          </View>
+        )}
         {hasConfiguredSettings && !runsError && !jobsError && !assetsError && (
           metricsLoading ? (
             <View style={{ marginTop: 4, marginHorizontal: 16 }}>
@@ -520,19 +551,22 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
     marginTop: 8,
   },
   statItem: {
+    flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 4,
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 4,
+    textAlign: 'center',
   },
   runItem: {
     marginVertical: 8,

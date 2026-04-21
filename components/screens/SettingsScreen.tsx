@@ -8,6 +8,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { ENV_CONFIG } from '../../config/env';
 import { useTheme } from '../ThemeProvider';
 import LinkHandlingPrompt from '../LinkHandlingPrompt';
+import { useCompass, getFloatingButtonPref, setFloatingButtonPref } from '../compass/CompassProvider';
 
 interface SettingsScreenProps {
   navigation: any;
@@ -34,11 +35,14 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const [biometricAuth, setBiometricAuth] = React.useState(false);
   const [biometricAvailable, setBiometricAvailable] = React.useState(false);
   const [showLinkHandlingPrompt, setShowLinkHandlingPrompt] = React.useState(false);
+  const [compassFloatingEnabled, setCompassFloatingEnabled] = React.useState(false);
+  const { enabled: compassEnabled } = useCompass();
 
   React.useEffect(() => {
     loadSettings();
     checkBiometricAvailability();
     checkLinkHandlingPrompt();
+    getFloatingButtonPref().then(setCompassFloatingEnabled);
   }, []);
 
   const checkLinkHandlingPrompt = async () => {
@@ -375,13 +379,37 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
           <Divider style={styles.divider} />
           <View style={styles.settingItem}>
             <Text style={[styles.settingText, { color: theme.colors.onSurface }]}>Dark mode</Text>
-            <Switch 
-              value={isDarkMode} 
+            <Switch
+              value={isDarkMode}
               onValueChange={toggleDarkMode}
               trackColor={{ false: '#767577', true: '#4F43DD' }}
               thumbColor={isDarkMode ? '#ffffff' : '#f4f3f4'}
             />
           </View>
+          {compassEnabled && (
+            <>
+              <Divider style={styles.divider} />
+              <View style={styles.settingItem}>
+                <View style={styles.settingTextContainer}>
+                  <Text style={[styles.settingText, { color: theme.colors.onSurface }]}>
+                    Show floating Compass button
+                  </Text>
+                  <Text style={[styles.settingDescription, { color: theme.colors.onSurfaceVariant }]}>
+                    Adds a draggable ✨ bubble overlay for quick access. Compass is always available from the header icon.
+                  </Text>
+                </View>
+                <Switch
+                  value={compassFloatingEnabled}
+                  onValueChange={async (value) => {
+                    setCompassFloatingEnabled(value);
+                    await setFloatingButtonPref(value);
+                  }}
+                  trackColor={{ false: '#767577', true: '#4F43DD' }}
+                  thumbColor={compassFloatingEnabled ? '#ffffff' : '#f4f3f4'}
+                />
+              </View>
+            </>
+          )}
           {biometricAvailable && (
             <>
               <Divider style={styles.divider} />

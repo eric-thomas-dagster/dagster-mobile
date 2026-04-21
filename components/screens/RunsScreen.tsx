@@ -10,6 +10,7 @@ import { useTheme } from '../ThemeProvider';
 import { CardSkeletonList } from '../SkeletonLoader';
 import EmptyState from '../EmptyState';
 import { useToast } from '../ToastProvider';
+import { CompassPromptPills } from '../compass/CompassPromptPills';
 import Svg, { Path } from 'react-native-svg';
 
 const RunIcon = ({ color, size }: { color: string; size: number }) => (
@@ -329,6 +330,34 @@ const RunsScreen: React.FC<RunsScreenProps> = ({ navigation, route }) => {
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListHeaderComponent={
+          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+            <CompassPromptPills
+              prompts={[
+                {
+                  label: 'Recent failures',
+                  prompt:
+                    'Summarize the most recent failed runs in this deployment — which job, which step, and the root cause of each.',
+                },
+                {
+                  label: 'Still in progress',
+                  prompt:
+                    'Which runs are still in progress right now? Include job name, duration so far, and which step they are on.',
+                },
+                {
+                  label: 'Longest-running recent runs',
+                  prompt:
+                    'Which runs in the last 24 hours took the longest to complete? Rank by duration with job name and status.',
+                },
+                {
+                  label: 'Retry patterns',
+                  prompt:
+                    'Are any runs retrying repeatedly? Which jobs are hitting retry limits or flaking most often?',
+                },
+              ]}
+            />
+          </View>
         }
         ListEmptyComponent={
           <EmptyState

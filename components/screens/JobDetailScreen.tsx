@@ -9,6 +9,7 @@ import { formatDagsterDateTime } from '../../lib/utils/dateUtils';
 import { useLaunchJobMaterialization, useJobMetadata, useJobPartitionSets } from '../../lib/utils/assetUtils';
 import { useTheme } from '../ThemeProvider';
 import { generateDagsterUrl } from '../../lib/utils/shareUtils';
+import { CompassPromptPills } from '../compass/CompassPromptPills';
 
 interface JobDetailScreenProps {
   navigation: any;
@@ -229,6 +230,24 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ navigation, route }) 
             <View style={styles.jobHeader}>
               <Title>{job.pipelineName}</Title>
             </View>
+            {job.pipelineName && (
+              <CompassPromptPills
+                prompts={[
+                  {
+                    label: 'Why did the last run fail?',
+                    prompt: `Look at the most recent run of the job "${job.pipelineName}" and explain why it failed, including which step and the root cause.`,
+                  },
+                  {
+                    label: 'Typical runtime',
+                    prompt: `What is the typical runtime and reliability of the job "${job.pipelineName}"? Include trends over the last 7 days.`,
+                  },
+                  {
+                    label: 'What does it do?',
+                    prompt: `Describe what the job "${job.pipelineName}" does, which assets it materializes, and its role in the pipeline.`,
+                  },
+                ]}
+              />
+            )}
           </Card.Content>
         </Card>
 
