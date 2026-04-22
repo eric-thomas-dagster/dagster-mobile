@@ -1195,14 +1195,14 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
           <CompassPromptPills
             prompts={[
               {
-                label: 'Top credit consumers',
+                label: 'Busiest jobs this week',
                 prompt:
-                  'Which assets or jobs are consuming the most Dagster+ credits right now, and how has that shifted week-over-week?',
+                  'Which jobs ran the most in the last 7 days, and how does that compare to the week before? Include run counts.',
               },
               {
-                label: 'Cost trends this week',
+                label: 'Runtime trends',
                 prompt:
-                  'Summarize Dagster+ credit usage trends for the last 7 days. Are we trending up or down, and what changed?',
+                  'Are any jobs or pipelines getting slower over time? Compare average runtime week-over-week and flag the biggest regressions.',
               },
               {
                 label: 'Slowest materializations',
@@ -1213,6 +1213,11 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
                 label: 'Most failure-prone',
                 prompt:
                   'Which assets or jobs have the highest failure or retry rate recently? Rank by failure count.',
+              },
+              {
+                label: 'Retry hotspots',
+                prompt:
+                  'Which jobs are retrying most often? Include retry counts and whether those runs eventually succeed.',
               },
             ]}
           />

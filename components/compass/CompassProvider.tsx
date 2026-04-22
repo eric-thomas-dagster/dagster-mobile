@@ -6,11 +6,18 @@ import { useCompassEnabled } from '../../lib/hooks/useFeatureGates';
 
 const FLOATING_BUTTON_SETTING_KEY = 'compass_floating_button_enabled';
 
+// Each screen registers its page-specific Compass prompts. The sheet's
+// empty state uses them when present, falling back to generic suggestions
+// when we're on a screen with no registered prompts.
+export type CompassSuggestion = { label: string; prompt: string };
+
 type CompassContextValue = {
   enabled: boolean;
   open: () => void;
   openWithPrompt: (prompt: string) => void;
   close: () => void;
+  screenSuggestions: CompassSuggestion[] | null;
+  setScreenSuggestions: (prompts: CompassSuggestion[] | null) => void;
 };
 
 const CompassContext = createContext<CompassContextValue>({
@@ -18,6 +25,8 @@ const CompassContext = createContext<CompassContextValue>({
   open: () => {},
   openWithPrompt: () => {},
   close: () => {},
+  screenSuggestions: null,
+  setScreenSuggestions: () => {},
 });
 
 export const useCompass = () => useContext(CompassContext);
@@ -40,6 +49,7 @@ export const CompassProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [sheetVisible, setSheetVisible] = useState(false);
   const [floatingEnabled, setFloatingEnabled] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [screenSuggestions, setScreenSuggestions] = useState<CompassSuggestion[] | null>(null);
 
   useEffect(() => {
     getFloatingButtonPref().then(setFloatingEnabled);
@@ -65,7 +75,16 @@ export const CompassProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const consumePendingPrompt = useCallback(() => setPendingPrompt(null), []);
 
   return (
-    <CompassContext.Provider value={{ enabled, open, openWithPrompt, close }}>
+    <CompassContext.Provider
+      value={{
+        enabled,
+        open,
+        openWithPrompt,
+        close,
+        screenSuggestions,
+        setScreenSuggestions,
+      }}
+    >
       {children}
       {enabled && floatingEnabled && <CompassFloatingButton onPress={open} />}
       <CompassSheet

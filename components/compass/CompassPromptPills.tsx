@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '../ThemeProvider';
@@ -16,7 +16,16 @@ type Props = {
 
 export const CompassPromptPills: React.FC<Props> = ({ prompts }) => {
   const { theme } = useTheme();
-  const { enabled, openWithPrompt } = useCompass();
+  const { enabled, openWithPrompt, setScreenSuggestions } = useCompass();
+
+  // While this pill row is on-screen, register its prompts as the page's
+  // contextual suggestions. The Compass sheet's empty state uses them
+  // instead of generic starter prompts when the user opens Compass here.
+  useEffect(() => {
+    if (!enabled || prompts.length === 0) return;
+    setScreenSuggestions(prompts);
+    return () => setScreenSuggestions(null);
+  }, [enabled, prompts, setScreenSuggestions]);
 
   if (!enabled || prompts.length === 0) return null;
 

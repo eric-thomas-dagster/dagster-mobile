@@ -389,9 +389,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
                     'Summarize what happened in this deployment in the last 24 hours — materializations, failures, slowdowns, and anything unusual.',
                 },
                 {
-                  label: 'Where are credits going?',
+                  label: 'Busiest jobs right now',
                   prompt:
-                    'Where is Dagster+ credit consumption concentrated right now? Which assets or jobs are the top spenders this week?',
+                    'Which jobs are running the most or taking the longest this week? Show top 10 by total compute time.',
                 },
                 {
                   label: 'Health check',

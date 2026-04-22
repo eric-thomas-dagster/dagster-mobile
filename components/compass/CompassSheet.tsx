@@ -15,6 +15,7 @@ import { AI_CHAT_SUBSCRIPTION } from '../../lib/graphql/compass';
 import { useChatStream } from './useChatStream';
 import { ChatBlocks } from './ChatBlocks';
 import { CompassIcon } from './CompassIcon';
+import { useCompass } from './CompassProvider';
 
 type Props = {
   visible: boolean;
@@ -23,14 +24,15 @@ type Props = {
   onPendingPromptConsumed?: () => void;
 };
 
-// Empty-state starter prompts. Kept broad so they work for any deployment.
-const EMPTY_STATE_SUGGESTIONS = [
-  'Which pipelines have the longest runtimes?',
-  "What's broken right now?",
-  'Summarize the last failed run',
-  'Which assets are consuming the most credits?',
-  'Show me recent asset check failures',
-  'Which assets are stale?',
+// Generic empty-state starter prompts used when the user opens Compass
+// on a page that hasn't registered its own contextual suggestions.
+const GENERIC_SUGGESTIONS: { label: string; prompt: string }[] = [
+  { label: 'Longest runtimes', prompt: 'Which pipelines have the longest runtimes?' },
+  { label: "What's broken right now?", prompt: "What's broken right now across this deployment?" },
+  { label: 'Summarize last failed run', prompt: 'Summarize the last failed run.' },
+  { label: 'Busiest this week', prompt: 'Which pipelines ran the most this week?' },
+  { label: 'Recent check failures', prompt: 'Show me recent asset check failures.' },
+  { label: 'Stale assets', prompt: 'Which assets are stale right now?' },
 ];
 
 export const CompassSheet: React.FC<Props> = ({
@@ -40,8 +42,13 @@ export const CompassSheet: React.FC<Props> = ({
   onPendingPromptConsumed,
 }) => {
   const { theme } = useTheme();
+  const { screenSuggestions } = useCompass();
   const [input, setInput] = useState('');
   const scrollRef = useRef<ScrollView>(null);
+
+  // Page-specific suggestions when available, otherwise fall back to generic.
+  const activeSuggestions =
+    screenSuggestions && screenSuggestions.length > 0 ? screenSuggestions : GENERIC_SUGGESTIONS;
 
   const buildVariables = useCallback(
     ({ prompt, chatId }: { prompt: string; chatId: number }) => ({
@@ -134,13 +141,15 @@ export const CompassSheet: React.FC<Props> = ({
                   Ask Compass anything about Dagster+
                 </Text>
                 <Text style={[styles.emptyBody, { color: theme.colors.onSurfaceVariant }]}>
-                  Pick a suggestion to get started, or type your own question below.
+                  {screenSuggestions && screenSuggestions.length > 0
+                    ? 'Suggestions for this page, or type your own question below.'
+                    : 'Pick a suggestion to get started, or type your own question below.'}
                 </Text>
                 <View style={styles.suggestionsWrap}>
-                  {EMPTY_STATE_SUGGESTIONS.map((s) => (
+                  {activeSuggestions.map((s) => (
                     <TouchableOpacity
-                      key={s}
-                      onPress={() => send(s)}
+                      key={s.label}
+                      onPress={() => send(s.prompt)}
                       disabled={status === 'streaming'}
                       style={[
                         styles.suggestionPill,
@@ -153,7 +162,7 @@ export const CompassSheet: React.FC<Props> = ({
                       activeOpacity={0.7}
                     >
                       <Text style={{ color: theme.colors.primary, fontSize: 13, fontWeight: '500' }}>
-                        {s}
+                        {s.label}
                       </Text>
                     </TouchableOpacity>
                   ))}

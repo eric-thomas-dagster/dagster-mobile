@@ -867,9 +867,9 @@ const AssetsScreen: React.FC<AssetsScreenProps> = ({ navigation }) => {
                     'Which assets have no owner assigned? Group by code location so I can see where ownership gaps are.',
                 },
                 {
-                  label: 'Most expensive assets',
+                  label: 'Slowest to materialize',
                   prompt:
-                    'Which assets consume the most credits or take the longest to materialize? I want to know where compute cost is concentrated.',
+                    'Which assets take the longest to materialize? Rank top 10 by average materialization duration and flag any that are getting slower.',
                 },
               ]}
             />
