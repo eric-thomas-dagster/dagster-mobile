@@ -2082,4 +2082,69 @@ export const GET_ASSET_DEPENDENCIES = gql`
       }
     }
   }
-`; 
+`;
+
+// Run interventions
+export const TERMINATE_RUN = gql`
+  mutation TerminateRun($runId: String!, $terminatePolicy: TerminateRunPolicy) {
+    terminatePipelineExecution(runId: $runId, terminatePolicy: $terminatePolicy) {
+      __typename
+      ... on TerminateRunSuccess {
+        run {
+          id
+          runId
+          status
+        }
+      }
+      ... on TerminateRunFailure {
+        message
+      }
+      ... on RunNotFoundError {
+        message
+      }
+      ... on PythonError {
+        message
+      }
+      ... on UnauthorizedError {
+        message
+      }
+    }
+  }
+`;
+
+export const LAUNCH_RUN_REEXECUTION = gql`
+  mutation LaunchRunReexecution($reexecutionParams: ReexecutionParams!) {
+    launchPipelineReexecution(reexecutionParams: $reexecutionParams) {
+      __typename
+      ... on LaunchRunSuccess {
+        run {
+          id
+          runId
+        }
+      }
+      ... on RunConfigValidationInvalid {
+        errors {
+          message
+        }
+      }
+      ... on PipelineNotFoundError {
+        message
+      }
+      ... on InvalidSubsetError {
+        message
+      }
+      ... on PresetNotFoundError {
+        message
+      }
+      ... on ConflictingExecutionParamsError {
+        message
+      }
+      ... on PythonError {
+        message
+      }
+      ... on UnauthorizedError {
+        message
+      }
+    }
+  }
+`;

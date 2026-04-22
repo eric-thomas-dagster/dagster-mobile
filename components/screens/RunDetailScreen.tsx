@@ -2,8 +2,9 @@ import React from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, Share, Alert } from 'react-native';
 import { Card, Title, Paragraph, ActivityIndicator, Text, Divider, Button, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery } from '@apollo/client';
-import { GET_RUN, GET_RUN_LOGS } from '../../lib/graphql/queries';
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_RUN, GET_RUN_LOGS, TERMINATE_RUN, LAUNCH_RUN_REEXECUTION } from '../../lib/graphql/queries';
+import { useToast } from '../ToastProvider';
 import LogsViewer from '../LogsViewer';
 import { formatDagsterDate, formatDagsterTime, formatDagsterDateTime } from '../../lib/utils/dateUtils';
 import { mockLogs, mockFailedLogs } from '../../lib/mock-data';
@@ -26,6 +27,75 @@ const RunDetailScreen: React.FC<RunDetailScreenProps> = ({ navigation, route }) 
     variables: { runId },
     errorPolicy: 'all',
   });
+
+  const { showToast } = useToast();
+  const [terminateRun, { loading: terminating }] = useMutation(TERMINATE_RUN);
+  const [reexecuteRun, { loading: reexecuting }] = useMutation(LAUNCH_RUN_REEXECUTION);
+
+  const handleTerminate = () => {
+    Alert.alert(
+      'Terminate run?',
+      'This will stop the run. In-flight steps will attempt to clean up.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Terminate',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await terminateRun({
+                variables: { runId, terminatePolicy: 'SAFE_TERMINATE' },
+              });
+              const result = res.data?.terminatePipelineExecution;
+              if (result?.__typename === 'TerminateRunSuccess') {
+                showToast('Run termination requested');
+                refetch();
+              } else {
+                showToast(result?.message || 'Could not terminate run');
+              }
+            } catch (e: any) {
+              showToast(e?.message || 'Failed to terminate run');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleReexecute = (strategy: 'ALL_STEPS' | 'FROM_FAILURE') => {
+    const title = strategy === 'FROM_FAILURE' ? 'Retry from failure?' : 'Re-run from start?';
+    const body =
+      strategy === 'FROM_FAILURE'
+        ? 'Launches a new run that resumes from the failed step.'
+        : 'Launches a new run that repeats the entire pipeline.';
+    Alert.alert(title, body, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Launch',
+        onPress: async () => {
+          try {
+            const res = await reexecuteRun({
+              variables: { reexecutionParams: { parentRunId: runId, strategy } },
+            });
+            const result = res.data?.launchPipelineReexecution;
+            if (result?.__typename === 'LaunchRunSuccess') {
+              const newRunId = result.run?.runId;
+              showToast('New run launched');
+              if (newRunId) {
+                navigation.navigate('RunDetail', { runId: newRunId });
+              }
+            } else {
+              const msg =
+                result?.message || result?.errors?.[0]?.message || 'Could not launch re-execution';
+              showToast(msg);
+            }
+          } catch (e: any) {
+            showToast(e?.message || 'Failed to launch re-execution');
+          }
+        },
+      },
+    ]);
+  };
 
   // Debug logging
   React.useEffect(() => {
@@ -195,6 +265,55 @@ const RunDetailScreen: React.FC<RunDetailScreenProps> = ({ navigation, route }) 
                 Ended: {formatDate(run.endTime)} at {formatTime(run.endTime)}
               </Text>
             )}
+
+            {/* Interventions — only show buttons that make sense for the current status */}
+            <View style={styles.interventionRow}>
+              {(run.status === 'STARTED' ||
+                run.status === 'STARTING' ||
+                run.status === 'QUEUED') && (
+                <Button
+                  mode="outlined"
+                  onPress={handleTerminate}
+                  loading={terminating}
+                  disabled={terminating}
+                  icon="stop"
+                  textColor="#f44336"
+                  style={[styles.interventionBtn, { borderColor: '#f44336' }]}
+                  compact
+                >
+                  Terminate
+                </Button>
+              )}
+              {(run.status === 'FAILURE' || run.status === 'CANCELED') && (
+                <Button
+                  mode="contained"
+                  onPress={() => handleReexecute('FROM_FAILURE')}
+                  loading={reexecuting}
+                  disabled={reexecuting}
+                  icon="replay"
+                  style={styles.interventionBtn}
+                  compact
+                >
+                  Retry from failure
+                </Button>
+              )}
+              {(run.status === 'SUCCESS' ||
+                run.status === 'FAILURE' ||
+                run.status === 'CANCELED') && (
+                <Button
+                  mode="outlined"
+                  onPress={() => handleReexecute('ALL_STEPS')}
+                  loading={reexecuting}
+                  disabled={reexecuting}
+                  icon="restart"
+                  style={styles.interventionBtn}
+                  compact
+                >
+                  Re-run all
+                </Button>
+              )}
+            </View>
+
             <CompassPromptPills
               prompts={[
                 ...(run.status === 'FAILURE' || run.status === 'CANCELED'
@@ -283,6 +402,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  interventionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  interventionBtn: {
+    marginRight: 4,
   },
   loadingContainer: {
     flex: 1,

@@ -1,9 +1,15 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, Alert, Share } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl, Alert, Share, TouchableOpacity, Linking } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import { Card, Title, Paragraph, ActivityIndicator, Text, Divider, Chip, Button, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@apollo/client';
-import { GET_ASSET, GET_ASSET_DETAILS, GET_ASSET_VIEW_DEFINITION } from '../../lib/graphql/queries';
+import {
+  GET_ASSET,
+  GET_ASSET_DETAILS,
+  GET_ASSET_VIEW_DEFINITION,
+  GET_ASSET_DEPENDENCIES,
+} from '../../lib/graphql/queries';
 import { AssetKeyInput } from '../../lib/types/dagster';
 import { formatDagsterDate, formatDagsterTime } from '../../lib/utils/dateUtils';
 import { useLaunchMaterialization, useAssetPartitionInfo } from '../../lib/utils/assetUtils';
@@ -13,6 +19,61 @@ import AssetInsights from '../AssetInsights';
 import { AISummaryCard } from '../compass/AISummaryCard';
 import { CompassPromptPills } from '../compass/CompassPromptPills';
 import { AI_SUMMARY_FOR_ASSET_MATERIALIZATION_SUBSCRIPTION } from '../../lib/graphql/compass';
+
+// Mirrors the allow-list in Compass's ChatBlocks; keep schemes tight so we
+// never end up invoking an unexpected app deep-link from materialization
+// metadata (which is user-authored via Dagster code).
+const SAFE_URL_SCHEMES = ['http:', 'https:', 'mailto:'];
+const openSafeUrl = (url: string) => {
+  const lowered = (url || '').trim().toLowerCase();
+  if (SAFE_URL_SCHEMES.some((s) => lowered.startsWith(s))) {
+    Linking.openURL(url).catch(() => {});
+  }
+};
+
+const buildMetadataMarkdownStyles = (theme: any) => ({
+  body: { color: theme.colors.onSurface, fontSize: 13, lineHeight: 18 },
+  paragraph: { marginTop: 0, marginBottom: 6, color: theme.colors.onSurface },
+  heading1: { color: theme.colors.onSurface, fontSize: 16, fontWeight: '700', marginTop: 6, marginBottom: 4 },
+  heading2: { color: theme.colors.onSurface, fontSize: 15, fontWeight: '700', marginTop: 6, marginBottom: 4 },
+  heading3: { color: theme.colors.onSurface, fontSize: 14, fontWeight: '700', marginTop: 4, marginBottom: 4 },
+  strong: { fontWeight: '700' },
+  em: { fontStyle: 'italic' },
+  link: { color: theme.colors.primary, textDecorationLine: 'underline' },
+  blockquote: {
+    backgroundColor: theme.colors.surfaceVariant,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginVertical: 4,
+    borderRadius: 4,
+  },
+  code_inline: { fontFamily: 'Menlo', fontSize: 11, color: theme.colors.primary },
+  fence: {
+    fontFamily: 'Menlo',
+    fontSize: 11,
+    backgroundColor: theme.colors.surfaceVariant,
+    color: theme.colors.onSurfaceVariant,
+    padding: 6,
+    borderRadius: 4,
+    marginVertical: 4,
+  },
+  code_block: {
+    fontFamily: 'Menlo',
+    fontSize: 11,
+    backgroundColor: theme.colors.surfaceVariant,
+    color: theme.colors.onSurfaceVariant,
+    padding: 6,
+    borderRadius: 4,
+    marginVertical: 4,
+  },
+  table: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 4, marginVertical: 4 },
+  thead: { backgroundColor: theme.colors.surfaceVariant },
+  th: { padding: 4, borderRightWidth: 0.5, borderColor: theme.colors.outline },
+  tr: { borderBottomWidth: 0.5, borderColor: theme.colors.outline, flexDirection: 'row' },
+  td: { padding: 4, borderRightWidth: 0.5, borderColor: theme.colors.outline },
+});
 
 interface AssetDetailScreenProps {
   navigation: any;
@@ -29,6 +90,20 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
     errorPolicy: 'all',
     fetchPolicy: 'network-only',
   });
+
+  const { data: dependenciesData } = useQuery(GET_ASSET_DEPENDENCIES, {
+    variables: { assetKey },
+    errorPolicy: 'all',
+  });
+
+  const lineageNode = dependenciesData?.assetNodeOrError?.__typename === 'AssetNode'
+    ? dependenciesData.assetNodeOrError
+    : null;
+  const upstreamAssets: { path: string[] }[] =
+    lineageNode?.dependencies?.map((d: any) => d.asset?.assetKey).filter(Boolean) ?? [];
+  const downstreamAssets: { path: string[] }[] =
+    lineageNode?.dependedBy?.map((d: any) => d.asset?.assetKey).filter(Boolean) ?? [];
+  const hasLineage = upstreamAssets.length > 0 || downstreamAssets.length > 0;
 
   const { launchMaterialization, loading: launchLoading } = useLaunchMaterialization();
   const { isPartitioned, loading: partitionLoading } = useAssetPartitionInfo(assetKey);
@@ -352,23 +427,73 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
       value = entry.jsonString;
       type = 'JSON';
     } else if (entry.url) {
-      value = entry.url;
       type = 'URL';
+      details = (
+        <TouchableOpacity onPress={() => openSafeUrl(entry.url)} activeOpacity={0.7}>
+          <Text
+            style={[styles.metadataValue, { color: theme.colors.primary, textDecorationLine: 'underline' }]}
+          >
+            {entry.url}
+          </Text>
+        </TouchableOpacity>
+      );
     } else if (entry.path) {
       value = entry.path;
       type = 'Path';
     } else if (entry.mdStr) {
-      value = entry.mdStr;
       type = 'Markdown';
+      details = (
+        <View style={styles.markdownContainer}>
+          <Markdown
+            style={buildMetadataMarkdownStyles(theme) as any}
+            onLinkPress={(url: string) => {
+              openSafeUrl(url);
+              return false;
+            }}
+          >
+            {entry.mdStr}
+          </Markdown>
+        </View>
+      );
     } else if (entry.timestamp) {
       value = new Date(entry.timestamp).toLocaleString();
       type = 'Timestamp';
     } else if (entry.runId) {
-      value = entry.runId;
       type = 'Run ID';
+      details = (
+        <TouchableOpacity
+          onPress={() =>
+            navigation.navigate('Runs', { screen: 'RunDetail', params: { runId: entry.runId } })
+          }
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[
+              styles.metadataValue,
+              { color: theme.colors.primary, textDecorationLine: 'underline', fontFamily: 'Menlo' },
+            ]}
+          >
+            {entry.runId}
+          </Text>
+        </TouchableOpacity>
+      );
     } else if (entry.assetKey) {
-      value = entry.assetKey.path.join(' / ');
       type = 'Asset';
+      const path = entry.assetKey.path;
+      details = (
+        <TouchableOpacity
+          onPress={() =>
+            navigation.navigate('Catalog', { screen: 'AssetDetail', params: { assetKey: { path } } })
+          }
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[styles.metadataValue, { color: theme.colors.primary, textDecorationLine: 'underline' }]}
+          >
+            {path.join(' / ')}
+          </Text>
+        </TouchableOpacity>
+      );
     } else if (entry.jobName) {
       value = `${entry.jobName} (${entry.repositoryName})`;
       type = 'Job';
@@ -769,6 +894,65 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
         {/* Asset Insights */}
         <AssetInsights assetKey={assetKey} />
 
+        {/* Lineage — tap any upstream/downstream asset to navigate to it */}
+        {hasLineage && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Title style={{ color: theme.colors.onSurface }}>Lineage</Title>
+              {upstreamAssets.length > 0 && (
+                <View style={styles.lineageSection}>
+                  <Text style={[styles.lineageSectionHeader, { color: theme.colors.onSurfaceVariant }]}>
+                    ⬆ Upstream ({upstreamAssets.length})
+                  </Text>
+                  {upstreamAssets.map((a, idx) => (
+                    <TouchableOpacity
+                      key={`up-${idx}-${a.path.join('/')}`}
+                      onPress={() =>
+                        navigation.navigate('Catalog', {
+                          screen: 'AssetDetail',
+                          params: { assetKey: { path: a.path } },
+                        })
+                      }
+                      style={[styles.lineageRow, { borderColor: theme.colors.outline }]}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ color: theme.colors.primary, flex: 1 }}>
+                        {a.path.join(' / ')}
+                      </Text>
+                      <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 18 }}>›</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {downstreamAssets.length > 0 && (
+                <View style={styles.lineageSection}>
+                  <Text style={[styles.lineageSectionHeader, { color: theme.colors.onSurfaceVariant }]}>
+                    ⬇ Downstream ({downstreamAssets.length})
+                  </Text>
+                  {downstreamAssets.map((a, idx) => (
+                    <TouchableOpacity
+                      key={`down-${idx}-${a.path.join('/')}`}
+                      onPress={() =>
+                        navigation.navigate('Catalog', {
+                          screen: 'AssetDetail',
+                          params: { assetKey: { path: a.path } },
+                        })
+                      }
+                      style={[styles.lineageRow, { borderColor: theme.colors.outline }]}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ color: theme.colors.primary, flex: 1 }}>
+                        {a.path.join(' / ')}
+                      </Text>
+                      <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 18 }}>›</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </Card.Content>
+          </Card>
+        )}
+
         {/* Asset Materializations */}
         {asset.assetMaterializations && asset.assetMaterializations.length > 0 && (
           <Card style={styles.card}>
@@ -1134,6 +1318,28 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 12,
+  },
+  markdownContainer: {
+    marginTop: 4,
+    paddingHorizontal: 4,
+  },
+  lineageSection: {
+    marginTop: 12,
+  },
+  lineageSectionHeader: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  lineageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 6,
+    marginBottom: 4,
   },
   metadataContainer: {
     marginTop: 8,
