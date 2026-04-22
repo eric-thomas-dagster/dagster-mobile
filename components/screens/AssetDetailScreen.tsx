@@ -80,6 +80,82 @@ interface AssetDetailScreenProps {
   route: any;
 }
 
+// Per-column row used inside the Lineage card's Columns section.
+// Renders name · type · description compact; if we have column-level
+// lineage for this column, the row is tappable and expands to show
+// the upstream (asset.column) sources.
+const ColumnRow: React.FC<{
+  column: any;
+  lineageDeps: { assetKey: { path: string[] }; columnName: string }[];
+  theme: any;
+  onNavigateAsset: (path: string[]) => void;
+}> = ({ column, lineageDeps, theme, onNavigateAsset }) => {
+  const [expanded, setExpanded] = React.useState(false);
+  const hasDeps = lineageDeps.length > 0;
+
+  return (
+    <View style={{ marginBottom: 4 }}>
+      <TouchableOpacity
+        onPress={() => hasDeps && setExpanded((e) => !e)}
+        disabled={!hasDeps}
+        activeOpacity={hasDeps ? 0.7 : 1}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: 8,
+          paddingHorizontal: 10,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: theme.colors.outline,
+          borderRadius: 6,
+          backgroundColor: expanded ? theme.colors.surfaceVariant : 'transparent',
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: theme.colors.onSurface, fontWeight: '600', fontSize: 13 }}>
+            {column.name}
+            {column.type ? (
+              <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '400' }}>
+                {'  '}· {column.type}
+              </Text>
+            ) : null}
+          </Text>
+          {column.description ? (
+            <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 11, marginTop: 2 }}>
+              {column.description}
+            </Text>
+          ) : null}
+        </View>
+        {hasDeps && (
+          <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 11 }}>
+            {expanded ? '▾' : '▸'} {lineageDeps.length} src
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      {expanded && hasDeps && (
+        <View style={{ marginLeft: 10, marginTop: 4, marginBottom: 6 }}>
+          {lineageDeps.map((dep, i) => (
+            <TouchableOpacity
+              key={`${dep.assetKey.path.join('/')}.${dep.columnName}.${i}`}
+              onPress={() => onNavigateAsset(dep.assetKey.path)}
+              activeOpacity={0.7}
+              style={{ paddingVertical: 4 }}
+            >
+              <Text style={{ color: theme.colors.primary, fontSize: 12 }}>
+                ← {dep.assetKey.path.join(' / ')}
+                <Text style={{ color: theme.colors.onSurface, fontFamily: 'Menlo' }}>
+                  {'.'}
+                  {dep.columnName}
+                </Text>
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
 const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route }) => {
   const { theme } = useTheme();
   const [refreshing, setRefreshing] = React.useState(false);
@@ -103,7 +179,72 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
     lineageNode?.dependencies?.map((d: any) => d.asset?.assetKey).filter(Boolean) ?? [];
   const downstreamAssets: { path: string[] }[] =
     lineageNode?.dependedBy?.map((d: any) => d.asset?.assetKey).filter(Boolean) ?? [];
-  const hasLineage = upstreamAssets.length > 0 || downstreamAssets.length > 0;
+  // Schema + per-column lineage, pulled up into the Lineage card so all
+  // relationship data lives in one place instead of scattered across the
+  // definition-metadata, materialization-metadata, and asset-dependency
+  // sections.
+  const assetForLineage = data?.assetOrError?.__typename === 'Asset' ? data.assetOrError : null;
+  const matEntries = assetForLineage?.assetMaterializations?.[0]?.metadataEntries ?? [];
+  const defEntries = assetForLineage?.definition?.metadataEntries ?? [];
+
+  const findEntry = (entries: any[], predicate: (e: any) => boolean) =>
+    entries.find(predicate);
+
+  const schemaEntry =
+    findEntry(
+      matEntries,
+      (e: any) => e.__typename === 'TableSchemaMetadataEntry' && e.schema?.columns,
+    ) ||
+    findEntry(
+      defEntries,
+      (e: any) =>
+        (e.__typename === 'TableSchemaMetadataEntry' || e.label === 'dagster/column_schema') &&
+        e.schema?.columns,
+    );
+  const schemaColumns: any[] = schemaEntry?.schema?.columns ?? [];
+
+  // Column lineage can live in either materialization or definition metadata,
+  // and the __typename field is sometimes dropped in cached Apollo responses,
+  // so match by a union of signals.
+  const isColumnLineageEntry = (e: any) =>
+    e &&
+    Array.isArray(e.lineage) &&
+    (e.__typename === 'TableColumnLineageMetadataEntry' ||
+      e.label === 'dagster/column_lineage' ||
+      e.lineage.some((l: any) => l?.columnName && Array.isArray(l?.columnDeps)));
+
+  const columnLineageEntry =
+    findEntry(matEntries, isColumnLineageEntry) || findEntry(defEntries, isColumnLineageEntry);
+
+  // Build a case-insensitive lookup so schema "Total_Amount" still matches
+  // column-lineage "total_amount" etc.
+  const columnLineageByColumn = new Map<string, any[]>();
+  (columnLineageEntry?.lineage ?? []).forEach((l: any) => {
+    if (l?.columnName) {
+      columnLineageByColumn.set(l.columnName.toLowerCase(), l.columnDeps ?? []);
+    }
+  });
+  const lineageDepsFor = (columnName: string) =>
+    columnLineageByColumn.get((columnName || '').toLowerCase()) ?? [];
+
+  console.log(
+    `[Lineage] schema=${schemaColumns.length} lineage=${columnLineageByColumn.size} entry?=${!!columnLineageEntry}`,
+  );
+
+  const hasLineage =
+    upstreamAssets.length > 0 ||
+    downstreamAssets.length > 0 ||
+    schemaColumns.length > 0 ||
+    columnLineageByColumn.size > 0;
+
+  // When we render schema + column-lineage in the Lineage card, hide those
+  // entries from the definition / materialization metadata lists so users
+  // don't see the same info twice.
+  const isPulledUpEntry = (e: any) =>
+    e?.__typename === 'TableSchemaMetadataEntry' ||
+    e?.__typename === 'TableColumnLineageMetadataEntry' ||
+    e?.label === 'dagster/column_schema' ||
+    e?.label === 'dagster/column_lineage';
 
   const { launchMaterialization, loading: launchLoading } = useLaunchMaterialization();
   const { isPartitioned, loading: partitionLoading } = useAssetPartitionInfo(assetKey);
@@ -877,16 +1018,24 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
             )}
 
             {asset.definition?.metadataEntries && asset.definition.metadataEntries.length > 0 && (
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: theme.colors.onSurfaceVariant }]}>Metadata</Text>
-                <View style={styles.metadataContainer}>
-                  {asset.definition.metadataEntries.map((entry: any, index: number) => (
-                    <View key={index} style={styles.metadataEntry}>
-                      {renderMetadataEntry(entry)}
+              (() => {
+                const visible = asset.definition.metadataEntries.filter(
+                  (e: any) => !isPulledUpEntry(e),
+                );
+                if (visible.length === 0) return null;
+                return (
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: theme.colors.onSurfaceVariant }]}>Metadata</Text>
+                    <View style={styles.metadataContainer}>
+                      {visible.map((entry: any, index: number) => (
+                        <View key={index} style={styles.metadataEntry}>
+                          {renderMetadataEntry(entry)}
+                        </View>
+                      ))}
                     </View>
-                  ))}
-                </View>
-              </View>
+                  </View>
+                );
+              })()
             )}
           </Card.Content>
         </Card>
@@ -894,15 +1043,16 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
         {/* Asset Insights */}
         <AssetInsights assetKey={assetKey} />
 
-        {/* Lineage — tap any upstream/downstream asset to navigate to it */}
+        {/* Lineage — one place for upstream, columns + column-level lineage, downstream */}
         {hasLineage && (
           <Card style={styles.card}>
             <Card.Content>
               <Title style={{ color: theme.colors.onSurface }}>Lineage</Title>
+
               {upstreamAssets.length > 0 && (
                 <View style={styles.lineageSection}>
                   <Text style={[styles.lineageSectionHeader, { color: theme.colors.onSurfaceVariant }]}>
-                    ⬆ Upstream ({upstreamAssets.length})
+                    ⬆ Upstream assets ({upstreamAssets.length})
                   </Text>
                   {upstreamAssets.map((a, idx) => (
                     <TouchableOpacity
@@ -924,10 +1074,41 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
                   ))}
                 </View>
               )}
+
+              {schemaColumns.length > 0 && (
+                <View style={styles.lineageSection}>
+                  <Text style={[styles.lineageSectionHeader, { color: theme.colors.onSurfaceVariant }]}>
+                    Columns ({schemaColumns.length})
+                    {columnLineageByColumn.size > 0
+                      ? ` — ${columnLineageByColumn.size} with source info, tap to expand`
+                      : ''}
+                  </Text>
+                  {schemaColumns.slice(0, 50).map((col: any, idx: number) => (
+                    <ColumnRow
+                      key={`col-${idx}-${col.name}`}
+                      column={col}
+                      lineageDeps={lineageDepsFor(col.name)}
+                      theme={theme}
+                      onNavigateAsset={(path: string[]) =>
+                        navigation.navigate('Catalog', {
+                          screen: 'AssetDetail',
+                          params: { assetKey: { path } },
+                        })
+                      }
+                    />
+                  ))}
+                  {schemaColumns.length > 50 && (
+                    <Text style={[styles.tableSchemaMore, { color: theme.colors.onSurfaceVariant }]}>
+                      +{schemaColumns.length - 50} more columns
+                    </Text>
+                  )}
+                </View>
+              )}
+
               {downstreamAssets.length > 0 && (
                 <View style={styles.lineageSection}>
                   <Text style={[styles.lineageSectionHeader, { color: theme.colors.onSurfaceVariant }]}>
-                    ⬇ Downstream ({downstreamAssets.length})
+                    ⬇ Downstream assets ({downstreamAssets.length})
                   </Text>
                   {downstreamAssets.map((a, idx) => (
                     <TouchableOpacity
@@ -969,13 +1150,21 @@ const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({ navigation, route
                     </View>
                   </View>
                   {materialization.metadataEntries && materialization.metadataEntries.length > 0 && (
-                    <View style={styles.metadataContainer}>
-                      {materialization.metadataEntries.map((entry: any, entryIndex: number) => (
-                        <View key={entryIndex} style={styles.metadataEntry}>
-                          {renderMetadataEntry(entry)}
+                    (() => {
+                      const visible = materialization.metadataEntries.filter(
+                        (e: any) => !isPulledUpEntry(e),
+                      );
+                      if (visible.length === 0) return null;
+                      return (
+                        <View style={styles.metadataContainer}>
+                          {visible.map((entry: any, entryIndex: number) => (
+                            <View key={entryIndex} style={styles.metadataEntry}>
+                              {renderMetadataEntry(entry)}
+                            </View>
+                          ))}
                         </View>
-                      ))}
-                    </View>
+                      );
+                    })()
                   )}
                 </View>
               ))}
