@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import Markdown from 'react-native-markdown-display';
 import { AssistantMessage, Block, formatToolLabel } from './types';
@@ -7,6 +7,23 @@ import { useTheme } from '../ThemeProvider';
 import { ChartBlock } from './ChartBlock';
 
 const DATA_VIZ_TOOL = 'TOOL_TYPE_RENDER_DATA_VISUALIZATION';
+
+// Allow-list URL schemes before handing to Linking.openURL. Compass content
+// is first-party but we don't want javascript:/file:/custom-app-deep-link
+// schemes in case the response surface ever changes.
+const SAFE_LINK_SCHEMES = ['http:', 'https:', 'mailto:'];
+const handleLinkPress = (url: string): boolean => {
+  try {
+    const lowered = url.trim().toLowerCase();
+    if (SAFE_LINK_SCHEMES.some((s) => lowered.startsWith(s))) {
+      Linking.openURL(url).catch(() => {});
+      return false;
+    }
+  } catch {
+    // fall through, don't open
+  }
+  return false;
+};
 
 type Props = {
   message: AssistantMessage;
@@ -63,7 +80,12 @@ const BlockView: React.FC<{ block: Block }> = ({ block }) => {
 
   if (block.kind === 'text') {
     return (
-      <Markdown style={buildMarkdownStyles(theme) as any}>{block.text}</Markdown>
+      <Markdown
+        style={buildMarkdownStyles(theme) as any}
+        onLinkPress={handleLinkPress}
+      >
+        {block.text}
+      </Markdown>
     );
   }
 

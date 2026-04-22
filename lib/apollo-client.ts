@@ -90,17 +90,26 @@ class AuthedWebSocket {
     ws.addEventListener('message', (ev: any) => {
       const d = ev?.data ?? ev;
       const s = typeof d === 'string' ? d : String(d);
-      console.log('[Compass] WS ← ' + s.slice(0, 300));
+      console.log('[Compass] WS ← ' + redactSecrets(s).slice(0, 300));
     });
     const origSend = ws.send.bind(ws);
     (ws as any).send = (data: any) => {
       const s = typeof data === 'string' ? data : String(data);
-      console.log('[Compass] WS → ' + s.slice(0, 300));
+      console.log('[Compass] WS → ' + redactSecrets(s).slice(0, 300));
       return origSend(data);
     };
     return ws as any;
   }
 }
+
+// Strips bearer tokens and obvious auth payloads from frame logs before
+// they hit console — Aikido secret-scanners look for `Bearer <token>` and
+// we don't want tokens landing in device logs / crashlytics breadcrumbs.
+const redactSecrets = (s: string): string => {
+  return s
+    .replace(/"(?:[Aa]uthorization|authorization)"\s*:\s*"[^"]*"/g, '"Authorization":"[REDACTED]"')
+    .replace(/[Bb]earer\s+[A-Za-z0-9_\-:.=+/]+/g, 'Bearer [REDACTED]');
+};
 
 const createDynamicHttpLink = (url: string) => {
   return createHttpLink({
