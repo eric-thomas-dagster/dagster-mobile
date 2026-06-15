@@ -2,11 +2,19 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import * as NavigationBar from 'expo-navigation-bar';
-import { Platform } from 'react-native';
+import { Platform, useColorScheme } from 'react-native';
+
+export type ThemePreference = 'light' | 'dark' | 'system';
+
+const THEME_PREFERENCE_KEY = 'dagster_theme_preference';
+// Legacy binary key kept for one-way migration; written by older builds where
+// the only choice was on/off.
+const LEGACY_DARK_MODE_KEY = 'dagster_dark_mode';
 
 interface ThemeContextType {
+  themePreference: ThemePreference;
+  setThemePreference: (pref: ThemePreference) => void;
   isDarkMode: boolean;
-  toggleDarkMode: () => void;
   theme: typeof MD3LightTheme;
 }
 
@@ -25,7 +33,12 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
+  // Re-renders when the OS switches themes, so the resolved theme stays in sync.
+  const systemColorScheme = useColorScheme();
+  const isDarkMode =
+    themePreference === 'dark' ||
+    (themePreference === 'system' && systemColorScheme === 'dark');
 
   useEffect(() => {
     loadThemePreference();
@@ -52,20 +65,30 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   const loadThemePreference = async () => {
     try {
-      const savedDarkMode = await AsyncStorage.getItem('dagster_dark_mode');
-      if (savedDarkMode !== null) {
-        setIsDarkMode(savedDarkMode === 'true');
+      const saved = await AsyncStorage.getItem(THEME_PREFERENCE_KEY);
+      if (saved === 'light' || saved === 'dark' || saved === 'system') {
+        setThemePreferenceState(saved);
+        return;
+      }
+      // One-time migration from the legacy on/off key. Treat any explicit
+      // legacy choice as an explicit modern choice (so we don't surprise the
+      // user by suddenly following the system on next launch).
+      const legacy = await AsyncStorage.getItem(LEGACY_DARK_MODE_KEY);
+      if (legacy === 'true' || legacy === 'false') {
+        const migrated: ThemePreference = legacy === 'true' ? 'dark' : 'light';
+        setThemePreferenceState(migrated);
+        await AsyncStorage.setItem(THEME_PREFERENCE_KEY, migrated);
+        await AsyncStorage.removeItem(LEGACY_DARK_MODE_KEY);
       }
     } catch (error) {
       console.error('Error loading theme preference:', error);
     }
   };
 
-  const toggleDarkMode = async () => {
+  const setThemePreference = async (pref: ThemePreference) => {
     try {
-      const newDarkMode = !isDarkMode;
-      setIsDarkMode(newDarkMode);
-      await AsyncStorage.setItem('dagster_dark_mode', newDarkMode.toString());
+      setThemePreferenceState(pref);
+      await AsyncStorage.setItem(THEME_PREFERENCE_KEY, pref);
     } catch (error) {
       console.error('Error saving theme preference:', error);
     }
@@ -143,8 +166,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   };
 
   const value: ThemeContextType = {
+    themePreference,
+    setThemePreference,
     isDarkMode,
-    toggleDarkMode,
     theme,
   };
 

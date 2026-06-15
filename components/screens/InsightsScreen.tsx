@@ -252,20 +252,32 @@ const parseInsightsResponse = (
   // Extract hourly charts
   const hourlyCharts: HourlyChart[] = [];
   
-  // Helper to create sparse labels (show each date only once)
-  const createSparseLabels = (timestamps: number[]) => {
-    const seenDates = new Set<string>();
-    return timestamps.map((ts: number) => {
-      const date = new Date(ts * 1000);
-      const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
-
-      // Only show label if we haven't seen this date yet
-      if (!seenDates.has(dateStr)) {
-        seenDates.add(dateStr);
-        return dateStr;
-      }
-      return '';
-    });
+  // chart-kit renders every label position; it does not decimate. With 168
+  // HOURLY points and narrow phone widths, "first occurrence per date"
+  // produced bunched-up labels (~30px apart, ~30px wide → collision). Pick a
+  // fixed number of tick positions evenly spaced across the data instead.
+  //
+  // chart-kit also always uses textAnchor="middle", so a label at the very
+  // last index sits at the SVG's right edge and clips off. Pull the rightmost
+  // tick inward by a small fraction so it stays fully on-screen.
+  const createSparseLabels = (timestamps: number[], maxLabels = 5): string[] => {
+    if (timestamps.length === 0) return [];
+    const formatDate = (ts: number) => {
+      const d = new Date(ts * 1000);
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    };
+    if (timestamps.length <= maxLabels) {
+      return timestamps.map(formatDate);
+    }
+    // ~8% right cushion keeps a ~5-char date label clear of the right edge on
+    // typical phone widths (chart width ~286px, paddingRight ~64px).
+    const rightCushion = Math.max(1, Math.ceil(timestamps.length * 0.08));
+    const lastTick = timestamps.length - 1 - rightCushion;
+    const tickIndices = new Set<number>();
+    for (let k = 0; k < maxLabels; k++) {
+      tickIndices.add(Math.round((k * lastTick) / (maxLabels - 1)));
+    }
+    return timestamps.map((ts, i) => (tickIndices.has(i) ? formatDate(ts) : ''));
   };
 
   // Materializations by hour

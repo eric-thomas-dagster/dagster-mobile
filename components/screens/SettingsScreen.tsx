@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ScrollView, StyleSheet, Alert, Switch, Platform, Linking } from 'react-native';
-import { Card, Title, Paragraph, TextInput, Button, Text, Divider, List, Switch as PaperSwitch } from 'react-native-paper';
+import { Card, Title, Paragraph, TextInput, Button, Text, Divider, List, Switch as PaperSwitch, ActivityIndicator, SegmentedButtons, Chip, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
@@ -8,7 +8,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { ENV_CONFIG } from '../../config/env';
 import { useTheme } from '../ThemeProvider';
 import LinkHandlingPrompt from '../LinkHandlingPrompt';
-import { useCompass, getFloatingButtonPref, setFloatingButtonPref } from '../compass/CompassProvider';
+import { useCompass } from '../compass/CompassProvider';
 
 interface SettingsScreenProps {
   navigation: any;
@@ -27,7 +27,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
       routes: [{ name: 'Main' }],
     });
   };
-  const { isDarkMode, toggleDarkMode, theme } = useTheme();
+  const { themePreference, setThemePreference, theme } = useTheme();
   const [baseUrl, setBaseUrl] = React.useState('');
   const [apiToken, setApiToken] = React.useState('');
   const [workspace, setWorkspace] = React.useState(ENV_CONFIG.DEFAULT_WORKSPACE);
@@ -35,14 +35,84 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const [biometricAuth, setBiometricAuth] = React.useState(false);
   const [biometricAvailable, setBiometricAvailable] = React.useState(false);
   const [showLinkHandlingPrompt, setShowLinkHandlingPrompt] = React.useState(false);
-  const [compassFloatingEnabled, setCompassFloatingEnabled] = React.useState(false);
-  const { enabled: compassEnabled } = useCompass();
+  // Track when AsyncStorage/SecureStore hydration completes. Until it does,
+  // we don't render the API Configuration TextInputs — otherwise their RN
+  // Paper floating labels animate from placeholder→floating position when the
+  // async load fires setState, which reads as labels sliding in diagonally.
+  const [settingsHydrated, setSettingsHydrated] = React.useState(false);
+  const [apiTokenVisible, setApiTokenVisible] = React.useState(false);
+
+  // List of deployments to populate the workspace chips. We deliberately don't
+  // route this through Apollo — Apollo is configured against whatever the user
+  // last *saved*, but we want the chips to reflect whatever they've currently
+  // typed (so a brand-new user can paste a base URL + token and immediately
+  // see available deployments without hitting Save first).
+  //
+  // `dg plus login` hits `https://{org}.dagster.cloud/graphql` (no deployment
+  // path) for the same `fullDeployments` query — that endpoint is org-scoped
+  // and returns deployments accessible to the token.
+  const [availableDeployments, setAvailableDeployments] = React.useState<string[]>([]);
+  const [deploymentsLoading, setDeploymentsLoading] = React.useState(false);
+
+  const fetchDeployments = React.useCallback(async () => {
+    const cleanedBase = baseUrl
+      .trim()
+      .replace(/^https?:\/\//i, '')
+      .replace(/\/.*$/, '');
+    const token = apiToken.trim();
+    if (!cleanedBase || !token) {
+      setAvailableDeployments([]);
+      return;
+    }
+    setDeploymentsLoading(true);
+    try {
+      const res = await fetch(`https://${cleanedBase}/graphql`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          query:
+            'query DeploymentsBootstrap { fullDeployments { deploymentName deploymentType isBranchDeployment } }',
+        }),
+      });
+      const json = await res.json();
+      const list: any[] = json?.data?.fullDeployments ?? [];
+      const names = list
+        .filter((d: any) => !d?.isBranchDeployment)
+        .map((d: any) => d?.deploymentName)
+        .filter((n: any): n is string => typeof n === 'string' && n.length > 0);
+      setAvailableDeployments(names);
+    } catch {
+      // Auth, network, or wrong-URL failures all land here. Leave the list
+      // empty so the chip row simply doesn't render — the user can still type
+      // a workspace manually.
+      setAvailableDeployments([]);
+    } finally {
+      setDeploymentsLoading(false);
+    }
+  }, [baseUrl, apiToken]);
+
+  // Debounce so we don't fire on every keystroke; 500ms is short enough to
+  // feel responsive but long enough to coalesce a paste-then-type pattern.
+  React.useEffect(() => {
+    if (!settingsHydrated) return;
+    const handle = setTimeout(() => {
+      fetchDeployments();
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [settingsHydrated, fetchDeployments]);
+  const {
+    enabled: compassEnabled,
+    floatingButtonEnabled: compassFloatingEnabled,
+    setFloatingButtonEnabled: setCompassFloatingEnabled,
+  } = useCompass();
 
   React.useEffect(() => {
     loadSettings();
     checkBiometricAvailability();
     checkLinkHandlingPrompt();
-    getFloatingButtonPref().then(setCompassFloatingEnabled);
   }, []);
 
   const checkLinkHandlingPrompt = async () => {
@@ -133,6 +203,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
       if (savedBiometricAuth !== null) setBiometricAuth(savedBiometricAuth === 'true');
     } catch (error) {
       console.error('Error loading settings:', error);
+    } finally {
+      setSettingsHydrated(true);
     }
   };
 
@@ -324,43 +396,107 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
         <Card style={styles.card}>
         <Card.Content>
           <Title>API Configuration</Title>
-          <TextInput
-            label="Dagster+ Base URL"
-            value={baseUrl}
-            onChangeText={(text) => setBaseUrl(text.trim())}
-            mode="outlined"
-            style={styles.input}
-            placeholder="hooli.dagster.cloud"
-          />
-          <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
-            Full URL will be: {constructGraphQLUrl(baseUrl, workspace)}
-          </Text>
-          <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
-            Tip: You can enter just the domain (e.g., "hooli.dagster.cloud") or include https://
-          </Text>
-          <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
-            After saving, use "Test Connection" to verify your settings work correctly.
-          </Text>
-          <TextInput
-            label="API Token"
-            value={apiToken}
-            onChangeText={(text) => setApiToken(text.trim())}
-            mode="outlined"
-            style={styles.input}
-            secureTextEntry
-            placeholder="Your API token"
-          />
-          <TextInput
-            label="Default Workspace"
-            value={workspace}
-            onChangeText={(text) => setWorkspace(text.trim())}
-            mode="outlined"
-            style={styles.input}
-            placeholder="prod"
-          />
-          <Button mode="contained" onPress={testConnection} style={styles.button}>
-            Test Connection
-          </Button>
+          {settingsHydrated ? (
+            <>
+              <TextInput
+                label="Dagster+ Base URL"
+                value={baseUrl}
+                onChangeText={(text) => setBaseUrl(text.trim())}
+                mode="outlined"
+                style={styles.input}
+                placeholder="hooli.dagster.cloud"
+              />
+              <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+                Full URL will be: {constructGraphQLUrl(baseUrl, workspace)}
+              </Text>
+              <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+                Tip: You can enter just the domain (e.g., "hooli.dagster.cloud") or include https://
+              </Text>
+              <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+                After saving, use "Test Connection" to verify your settings work correctly.
+              </Text>
+              <TextInput
+                label="API Token"
+                value={apiToken}
+                onChangeText={(text) => setApiToken(text.trim())}
+                mode="outlined"
+                style={styles.input}
+                secureTextEntry={!apiTokenVisible}
+                placeholder="Your API token"
+                right={
+                  <TextInput.Icon
+                    icon={apiTokenVisible ? 'eye-off' : 'eye'}
+                    onPress={() => setApiTokenVisible((v) => !v)}
+                    forceTextInputFocus={false}
+                    accessibilityLabel={apiTokenVisible ? 'Hide API token' : 'Show API token'}
+                  />
+                }
+              />
+              {(() => {
+                // Only show the helper link if we know which org to send the
+                // user to — without a base URL we have nowhere to send them.
+                const cleaned = baseUrl
+                  .trim()
+                  .replace(/^https?:\/\//i, '')
+                  .replace(/\/.*$/, '');
+                if (!cleaned) return null;
+                const tokensUrl = `https://${cleaned}/cloud-settings/tokens`;
+                return (
+                  <Button
+                    mode="text"
+                    icon="open-in-new"
+                    onPress={() => Linking.openURL(tokensUrl).catch(() => {})}
+                    style={styles.tokenLinkBtn}
+                    compact
+                  >
+                    Get an API token
+                  </Button>
+                );
+              })()}
+              <TextInput
+                label="Default Workspace"
+                value={workspace}
+                onChangeText={(text) => setWorkspace(text.trim())}
+                mode="outlined"
+                style={styles.input}
+                placeholder="prod"
+              />
+              {availableDeployments.length > 0 && (
+                <View style={styles.chipRow}>
+                  <Text style={[styles.chipLabel, { color: theme.colors.onSurfaceVariant }]}>
+                    Switch to:
+                  </Text>
+                  {availableDeployments.map((name) => (
+                    <Chip
+                      key={name}
+                      mode={name === workspace ? 'flat' : 'outlined'}
+                      selected={name === workspace}
+                      onPress={() => setWorkspace(name)}
+                      style={styles.chip}
+                      compact
+                    >
+                      {name}
+                    </Chip>
+                  ))}
+                  <IconButton
+                    icon="refresh"
+                    size={18}
+                    onPress={() => fetchDeployments().catch(() => {})}
+                    disabled={deploymentsLoading}
+                    accessibilityLabel="Refresh deployments"
+                    style={styles.refreshBtn}
+                  />
+                </View>
+              )}
+              <Button mode="contained" onPress={testConnection} style={styles.button}>
+                Test Connection
+              </Button>
+            </>
+          ) : (
+            <View style={styles.hydrationPlaceholder}>
+              <ActivityIndicator />
+            </View>
+          )}
         </Card.Content>
       </Card>
 
@@ -377,13 +513,18 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
             />
           </View>
           <Divider style={styles.divider} />
-          <View style={styles.settingItem}>
-            <Text style={[styles.settingText, { color: theme.colors.onSurface }]}>Dark mode</Text>
-            <Switch
-              value={isDarkMode}
-              onValueChange={toggleDarkMode}
-              trackColor={{ false: '#767577', true: '#4F43DD' }}
-              thumbColor={isDarkMode ? '#ffffff' : '#f4f3f4'}
+          <View style={styles.themeSection}>
+            <Text style={[styles.settingText, { color: theme.colors.onSurface, marginBottom: 8 }]}>
+              Appearance
+            </Text>
+            <SegmentedButtons
+              value={themePreference}
+              onValueChange={(v) => setThemePreference(v as typeof themePreference)}
+              buttons={[
+                { value: 'light', label: 'Light', icon: 'white-balance-sunny' },
+                { value: 'dark', label: 'Dark', icon: 'weather-night' },
+                { value: 'system', label: 'System', icon: 'cellphone' },
+              ]}
             />
           </View>
           {compassEnabled && (
@@ -400,10 +541,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
                 </View>
                 <Switch
                   value={compassFloatingEnabled}
-                  onValueChange={async (value) => {
-                    setCompassFloatingEnabled(value);
-                    await setFloatingButtonPref(value);
-                  }}
+                  onValueChange={setCompassFloatingEnabled}
                   trackColor={{ false: '#767577', true: '#4F43DD' }}
                   thumbColor={compassFloatingEnabled ? '#ffffff' : '#f4f3f4'}
                 />
@@ -531,6 +669,26 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 16,
   },
+  hydrationPlaceholder: {
+    minHeight: 240,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  themeSection: {
+    paddingVertical: 8,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: -8,
+    marginBottom: 16,
+  },
+  chipLabel: { fontSize: 12, marginRight: 4 },
+  chip: { marginVertical: 2 },
+  tokenLinkBtn: { alignSelf: 'flex-start', marginTop: -12, marginBottom: 8 },
+  refreshBtn: { margin: 0, marginLeft: 'auto' },
   helperText: {
     fontSize: 12,
     marginBottom: 16,

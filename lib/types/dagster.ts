@@ -691,3 +691,39 @@ export interface UserFavoriteAsset {
 export interface UserFavoriteAssetsResponse {
   userFavoriteAssets: UserFavoriteAsset[];
 } 
+export type IssueStatus = 'OPEN' | 'CLOSED' | 'CANCELED' | 'RESOLVED' | 'IN_PROGRESS' | string;
+
+export interface IssueCreatedByUser {
+  id: string;
+  email?: string | null;
+  displayName?: string | null;
+  picture?: string | null;
+  description?: string | null;
+  __typename?: 'DagsterCloudUser' | 'ServiceUser';
+}
+
+export interface IssueLinkedRun {
+  id: string;
+  runId: string;
+  repositoryOrigin?: {
+    repositoryLocationName?: string | null;
+  } | null;
+  __typename?: 'Run';
+}
+
+export interface Issue {
+  id: string;
+  publicId: string;
+  title: string;
+  description?: string | null;
+  status: IssueStatus;
+  asMarkdown?: string | null;
+  createdBy?: IssueCreatedByUser | null;
+  linkedObjects?: IssueLinkedRun[] | null;
+}
+
+export interface IssueListResponse {
+  issues: {
+    issues: Issue[];
+  };
+}

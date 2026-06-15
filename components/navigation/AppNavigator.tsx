@@ -27,6 +27,10 @@ import JobDetailScreen from '../screens/JobDetailScreen';
 import RunDetailScreen from '../screens/RunDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import InsightsScreen from '../screens/InsightsScreen';
+import MoreScreen from '../screens/MoreScreen';
+import IssueListScreen from '../screens/IssueListScreen';
+import IssueDetailScreen from '../screens/IssueDetailScreen';
+import CreateIssueScreen from '../screens/CreateIssueScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -68,13 +72,8 @@ const AutomationIcon = ({ color, size }: { color: string; size: number }) => (
   </Svg>
 );
 
-const InsightsIcon = ({ color, size }: { color: string; size: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <Path
-      d="M6.16699 18.3333L5.00033 17.1667L10.7503 11.3958L13.667 14.3125L17.9795 10L19.167 11.1875L13.667 16.6667L10.7503 13.75L6.16699 18.3333ZM3.33366 17.5C2.87533 17.5 2.48296 17.3368 2.15658 17.0104C1.83019 16.684 1.66699 16.2917 1.66699 15.8333V4.16667C1.66699 3.70833 1.83019 3.31597 2.15658 2.98958C2.48296 2.66319 2.87533 2.5 3.33366 2.5H15.0003C15.4587 2.5 15.851 2.66319 16.1774 2.98958C16.5038 3.31597 16.667 3.70833 16.667 4.16667V7.66667H3.33366V17.5ZM3.33366 6H15.0003V4.16667H3.33366V6Z"
-      fill={color}
-    />
-  </Svg>
+const MoreIcon = ({ color, size }: { color: string; size: number }) => (
+  <MaterialIcons name="more-horiz" size={size} color={color} />
 );
 
 const RunsIcon = ({ color, size }: { color: string; size: number }) => (
@@ -201,6 +200,16 @@ const RunsStack = () => {
         headerTitleAlign: 'left'
       }}
     />
+    <Stack.Screen
+      name="CreateIssue"
+      component={CreateIssueScreen}
+      options={{ headerTitle: 'File issue', headerTitleAlign: 'left' }}
+    />
+    <Stack.Screen
+      name="IssueDetail"
+      component={IssueDetailScreen}
+      options={{ headerTitle: 'Issue', headerTitleAlign: 'left' }}
+    />
   </Stack.Navigator>
 );
 };
@@ -243,6 +252,16 @@ const AutomationStack = () => {
         headerTitle: 'Run Details',
         headerTitleAlign: 'left'
       }}
+    />
+    <Stack.Screen
+      name="CreateIssue"
+      component={CreateIssueScreen}
+      options={{ headerTitle: 'File issue', headerTitleAlign: 'left' }}
+    />
+    <Stack.Screen
+      name="IssueDetail"
+      component={IssueDetailScreen}
+      options={{ headerTitle: 'Issue', headerTitleAlign: 'left' }}
     />
     </Stack.Navigator>
   );
@@ -302,7 +321,7 @@ const SettingsStack = () => {
 );
 };
 
-const InsightsStack = () => {
+const MoreStack = () => {
   const { theme } = useTheme();
   return (
     <Stack.Navigator
@@ -317,16 +336,38 @@ const InsightsStack = () => {
         headerRight: () => <CompassHeaderButton />,
       }}
     >
-    <Stack.Screen
-      name="InsightsMain"
-      component={InsightsScreen}
-      options={{
-        headerTitle: 'Insights',
-        headerTitleAlign: 'left'
-      }}
-    />
-  </Stack.Navigator>
-);
+      <Stack.Screen
+        name="MoreMain"
+        component={MoreScreen}
+        options={{ headerTitle: 'More', headerTitleAlign: 'left' }}
+      />
+      <Stack.Screen
+        name="InsightsMain"
+        component={InsightsScreen}
+        options={{ headerTitle: 'Insights', headerTitleAlign: 'left' }}
+      />
+      <Stack.Screen
+        name="IssueList"
+        component={IssueListScreen}
+        options={{ headerTitle: 'Issues', headerTitleAlign: 'left' }}
+      />
+      <Stack.Screen
+        name="IssueDetail"
+        component={IssueDetailScreen}
+        options={{ headerTitle: 'Issue', headerTitleAlign: 'left' }}
+      />
+      <Stack.Screen
+        name="RunDetail"
+        component={RunDetailScreen}
+        options={{ headerTitle: 'Run Details', headerTitleAlign: 'left' }}
+      />
+      <Stack.Screen
+        name="CreateIssue"
+        component={CreateIssueScreen}
+        options={{ headerTitle: 'File issue', headerTitleAlign: 'left' }}
+      />
+    </Stack.Navigator>
+  );
 };
 
 // Main tab navigator
@@ -347,10 +388,10 @@ const TabNavigator = () => {
           return <JobsIcon color={color} size={size} />;
         } else if (route.name === 'Runs') {
           return <RunsIcon color={color} size={size} />;
-        } else         if (route.name === 'Automation') {
+        } else if (route.name === 'Automation') {
           return <AutomationIcon color={color} size={size} />;
-        } else if (route.name === 'Insights') {
-          return <InsightsIcon color={color} size={size} />;
+        } else if (route.name === 'More') {
+          return <MoreIcon color={color} size={size} />;
         } else {
           iconName = 'help';
         }
@@ -372,12 +413,12 @@ const TabNavigator = () => {
         
         // Navigate to the first screen in the stack (reset to list view)
         navigation.navigate(route.name, {
-          screen:                   route.name === 'Jobs' ? 'JobsList' : 
-                  route.name === 'Runs' ? 'RunsList' : 
-                  route.name === 'Catalog' ? 'AssetsList' : 
-                  route.name === 'Automation' ? 'AutomationList' : 
-                  route.name === 'Insights' ? 'InsightsMain' :
-                  route.name === 'Home' ? 'HomeMain' : 
+          screen:                   route.name === 'Jobs' ? 'JobsList' :
+                  route.name === 'Runs' ? 'RunsList' :
+                  route.name === 'Catalog' ? 'AssetsList' :
+                  route.name === 'Automation' ? 'AutomationList' :
+                  route.name === 'More' ? 'MoreMain' :
+                  route.name === 'Home' ? 'HomeMain' :
                   'HomeMain'
         });
       },
@@ -388,7 +429,7 @@ const TabNavigator = () => {
     <Tab.Screen name="Jobs" component={JobsStack} />
     <Tab.Screen name="Runs" component={RunsStack} />
     <Tab.Screen name="Automation" component={AutomationStack} />
-    <Tab.Screen name="Insights" component={InsightsStack} />
+    <Tab.Screen name="More" component={MoreStack} />
   </Tab.Navigator>
 );
 };

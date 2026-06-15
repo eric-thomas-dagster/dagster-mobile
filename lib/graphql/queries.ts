@@ -2148,3 +2148,99 @@ export const LAUNCH_RUN_REEXECUTION = gql`
     }
   }
 `;
+
+export const GET_ISSUES = gql`
+  query IssueListQuery {
+    issues(limit: 1000) {
+      ... on IssueConnection {
+        issues {
+          id
+          publicId
+          title
+          description
+          status
+          asMarkdown
+          createdBy {
+            ... on DagsterCloudUser {
+              id
+              email
+              displayName
+              picture
+            }
+            ... on ServiceUser {
+              id
+              displayName
+              description
+            }
+          }
+          linkedObjects {
+            ... on Run {
+              id
+              runId
+              repositoryOrigin {
+                repositoryLocationName
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const CREATE_ISSUE = gql`
+  mutation CreateIssueMutation(
+    $title: String!
+    $description: String!
+    $origin: IssueLinkedObjectInput
+    $chatId: Int
+  ) {
+    createIssue(
+      title: $title
+      description: $description
+      origin: $origin
+      chatId: $chatId
+    ) {
+      __typename
+      ... on CreateIssueSuccess {
+        issue {
+          id
+          publicId
+          title
+          description
+          status
+          asMarkdown
+          createdBy {
+            ... on DagsterCloudUser {
+              id
+              email
+              displayName
+              picture
+            }
+            ... on ServiceUser {
+              id
+              displayName
+              description
+            }
+          }
+          linkedObjects {
+            ... on Run {
+              id
+              runId
+              repositoryOrigin {
+                repositoryLocationName
+              }
+            }
+          }
+        }
+      }
+      ... on UnauthorizedError {
+        message
+      }
+      ... on PythonError {
+        message
+      }
+    }
+  }
+`;
+

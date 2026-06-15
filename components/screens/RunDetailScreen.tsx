@@ -3,7 +3,8 @@ import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, Share, 
 import { Card, Title, Paragraph, ActivityIndicator, Text, Divider, Button, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_RUN, GET_RUN_LOGS, TERMINATE_RUN, LAUNCH_RUN_REEXECUTION } from '../../lib/graphql/queries';
+import { GET_RUN, GET_RUN_LOGS, TERMINATE_RUN, LAUNCH_RUN_REEXECUTION, GET_ISSUES } from '../../lib/graphql/queries';
+import { Issue, IssueListResponse } from '../../lib/types/dagster';
 import { useToast } from '../ToastProvider';
 import LogsViewer from '../LogsViewer';
 import { formatDagsterDate, formatDagsterTime, formatDagsterDateTime } from '../../lib/utils/dateUtils';
@@ -11,6 +12,7 @@ import { mockLogs, mockFailedLogs } from '../../lib/mock-data';
 import { useTheme } from '../ThemeProvider';
 import { generateDagsterUrl } from '../../lib/utils/shareUtils';
 import { CompassPromptPills } from '../compass/CompassPromptPills';
+import { useIssuesEnabled } from '../../lib/hooks/useFeatureGates';
 
 interface RunDetailScreenProps {
   navigation: any;
@@ -22,6 +24,24 @@ const RunDetailScreen: React.FC<RunDetailScreenProps> = ({ navigation, route }) 
   const [refreshing, setRefreshing] = React.useState(false);
   const [showLogs, setShowLogs] = React.useState(false);
   const { runId } = route.params;
+  const issuesEnabled = useIssuesEnabled();
+
+  // When Issues are gated on, look up any existing issue already linked to this
+  // run so we can offer "View issue" instead of letting the user file a dupe.
+  // `cache-first` means we hit the cache when the user has already visited the
+  // Issues tab; otherwise it fetches once and caches for the session.
+  const { data: issuesData } = useQuery<IssueListResponse>(GET_ISSUES, {
+    fetchPolicy: 'cache-first',
+    errorPolicy: 'all',
+    skip: !issuesEnabled,
+  });
+  const existingIssue: Issue | undefined = React.useMemo(() => {
+    if (!issuesEnabled) return undefined;
+    const allIssues = issuesData?.issues?.issues ?? [];
+    return allIssues.find((issue) =>
+      (issue.linkedObjects ?? []).some((obj) => obj?.runId === runId),
+    );
+  }, [issuesEnabled, issuesData, runId]);
 
   const { data, loading, refetch, error } = useQuery(GET_RUN, {
     variables: { runId },
@@ -296,6 +316,35 @@ const RunDetailScreen: React.FC<RunDetailScreenProps> = ({ navigation, route }) 
                 >
                   Retry from failure
                 </Button>
+              )}
+              {(run.status === 'FAILURE' || run.status === 'CANCELED') && issuesEnabled && (
+                existingIssue ? (
+                  <Button
+                    mode="outlined"
+                    onPress={() => navigation.navigate('IssueDetail', { issue: existingIssue })}
+                    icon="bug"
+                    style={styles.interventionBtn}
+                    compact
+                  >
+                    {`View issue #${existingIssue.publicId}`}
+                  </Button>
+                ) : (
+                  <Button
+                    mode="outlined"
+                    onPress={() =>
+                      navigation.navigate('CreateIssue', {
+                        runId: run.runId,
+                        pipelineName: run.pipelineName,
+                        runStatus: run.status,
+                      })
+                    }
+                    icon="bug"
+                    style={styles.interventionBtn}
+                    compact
+                  >
+                    File issue
+                  </Button>
+                )
               )}
               {(run.status === 'SUCCESS' ||
                 run.status === 'FAILURE' ||

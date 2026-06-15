@@ -37,17 +37,31 @@ export const ChartBlock: React.FC<Props> = ({ inputJson }) => {
   const chartWidth = Math.max(screenWidth - 40, xValues.length * 70);
 
   const labels = xValues.map((s) => (s.length > 14 ? s.slice(0, 12) + '…' : s));
+  // chart-kit's `fromZero` only guarantees 0 is in range — it does NOT clamp
+  // the axis to >=0. If any value is negative/NaN, the y-axis baseline becomes
+  // Math.min(...data, 0). Compass sometimes emits stray non-numeric/negative
+  // entries (e.g. missing buckets), so coerce and clamp at the boundary.
+  const sanitize = (n: unknown): number => {
+    const v = typeof n === 'number' ? n : Number(n);
+    return Number.isFinite(v) && v > 0 ? v : 0;
+  };
   const data = {
     labels,
-    datasets: series.map((s) => ({ data: s.data })),
+    datasets: series.map((s) => ({ data: s.data.map(sanitize) })),
     legend: series.map((s) => s.name),
   };
+
+  // Pick decimal places based on magnitude — durations span ms→hours, so a
+  // single hard-coded value gave us either "0,0,0,0" or "12345.0,67890.0".
+  const allValues = data.datasets.flatMap((d) => d.data);
+  const maxValue = allValues.length ? Math.max(...allValues) : 0;
+  const decimalPlaces = maxValue >= 10 ? 0 : maxValue >= 1 ? 1 : 2;
 
   const rnChartConfig = {
     backgroundColor: theme.colors.surface,
     backgroundGradientFrom: theme.colors.surface,
     backgroundGradientTo: theme.colors.surface,
-    decimalPlaces: 0,
+    decimalPlaces,
     color: (opacity = 1) =>
       theme.dark
         ? `rgba(121,134,203,${opacity})`
@@ -59,6 +73,12 @@ export const ChartBlock: React.FC<Props> = ({ inputJson }) => {
       strokeWidth: 0.5,
     },
     propsForLabels: { fontSize: 10 },
+    // Belt-and-suspenders: even if a negative slips through, never render a
+    // negative tick label on a chart whose underlying metric is non-negative.
+    formatYLabel: (value: string) => {
+      const num = Number(value);
+      return Number.isFinite(num) && num < 0 ? '' : value;
+    },
   };
 
   const renderChart = () => {

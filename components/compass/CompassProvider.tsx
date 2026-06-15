@@ -18,6 +18,8 @@ type CompassContextValue = {
   close: () => void;
   screenSuggestions: CompassSuggestion[] | null;
   setScreenSuggestions: (prompts: CompassSuggestion[] | null) => void;
+  floatingButtonEnabled: boolean;
+  setFloatingButtonEnabled: (value: boolean) => void;
 };
 
 const CompassContext = createContext<CompassContextValue>({
@@ -27,6 +29,8 @@ const CompassContext = createContext<CompassContextValue>({
   close: () => {},
   screenSuggestions: null,
   setScreenSuggestions: () => {},
+  floatingButtonEnabled: false,
+  setFloatingButtonEnabled: () => {},
 });
 
 export const useCompass = () => useContext(CompassContext);
@@ -47,21 +51,20 @@ export const setFloatingButtonPref = async (value: boolean) => {
 export const CompassProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const enabled = useCompassEnabled();
   const [sheetVisible, setSheetVisible] = useState(false);
-  const [floatingEnabled, setFloatingEnabled] = useState(false);
+  const [floatingButtonEnabled, setFloatingButtonEnabledState] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [screenSuggestions, setScreenSuggestions] = useState<CompassSuggestion[] | null>(null);
 
   useEffect(() => {
-    getFloatingButtonPref().then(setFloatingEnabled);
+    getFloatingButtonPref().then(setFloatingButtonEnabledState);
   }, []);
 
-  // Poll the AsyncStorage setting when the sheet closes, so toggling it
-  // in Settings takes effect without an app restart.
-  useEffect(() => {
-    if (!sheetVisible) {
-      getFloatingButtonPref().then(setFloatingEnabled);
-    }
-  }, [sheetVisible]);
+  // Single source of truth: toggling from Settings goes through this setter
+  // so the floating button shows/hides immediately, then persists.
+  const setFloatingButtonEnabled = useCallback((value: boolean) => {
+    setFloatingButtonEnabledState(value);
+    setFloatingButtonPref(value).catch(() => {});
+  }, []);
 
   const open = useCallback(() => setSheetVisible(true), []);
   const openWithPrompt = useCallback((prompt: string) => {
@@ -83,10 +86,12 @@ export const CompassProvider: React.FC<{ children: React.ReactNode }> = ({ child
         close,
         screenSuggestions,
         setScreenSuggestions,
+        floatingButtonEnabled,
+        setFloatingButtonEnabled,
       }}
     >
       {children}
-      {enabled && floatingEnabled && <CompassFloatingButton onPress={open} />}
+      {enabled && floatingButtonEnabled && <CompassFloatingButton onPress={open} />}
       <CompassSheet
         visible={sheetVisible}
         onClose={close}

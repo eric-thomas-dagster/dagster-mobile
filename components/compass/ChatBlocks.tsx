@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Linking, ScrollView } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import Markdown from 'react-native-markdown-display';
 import { AssistantMessage, Block, formatToolLabel } from './types';
@@ -82,6 +82,7 @@ const BlockView: React.FC<{ block: Block }> = ({ block }) => {
     return (
       <Markdown
         style={buildMarkdownStyles(theme) as any}
+        rules={markdownRules}
         onLinkPress={handleLinkPress}
       >
         {block.text}
@@ -140,6 +141,72 @@ const BlockView: React.FC<{ block: Block }> = ({ block }) => {
       )}
     </TouchableOpacity>
   );
+};
+
+// Wide tables (e.g. 24-hour × 7-day matrices) squish to unreadable cells in
+// the default flex layout. Wrap the table in a horizontal ScrollView, give the
+// table an explicit width (>= available chat width) and let cells flex:1 within
+// it — so narrow tables fill the row and columns align across rows, while wide
+// tables overflow and scroll horizontally.
+const TABLE_CELL_MIN_WIDTH = 64;
+
+const countTableColumns = (node: any): number => {
+  const findFirstRow = (n: any): any => {
+    if (!n) return null;
+    if (n.type === 'tr') return n;
+    if (Array.isArray(n.children)) {
+      for (const c of n.children) {
+        const r = findFirstRow(c);
+        if (r) return r;
+      }
+    }
+    return null;
+  };
+  const tr = findFirstRow(node);
+  if (!tr || !Array.isArray(tr.children)) return 1;
+  const cells = tr.children.filter((c: any) => c.type === 'th' || c.type === 'td');
+  return cells.length || tr.children.length || 1;
+};
+
+const TableRule: React.FC<{ node: any; styles: any; children: React.ReactNode }> = ({
+  node,
+  styles,
+  children,
+}) => {
+  const [available, setAvailable] = React.useState(0);
+  const cols = countTableColumns(node);
+  const minTableWidth = cols * TABLE_CELL_MIN_WIDTH;
+  const tableWidth = Math.max(minTableWidth, available);
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (w && w !== available) setAvailable(w);
+      }}
+    >
+      <View style={[styles._VIEW_SAFE_table, { width: tableWidth }]}>{children}</View>
+    </ScrollView>
+  );
+};
+
+const markdownRules = {
+  table: (node: any, children: React.ReactNode, _parent: any, styles: any) => (
+    <TableRule key={node.key} node={node} styles={styles}>
+      {children}
+    </TableRule>
+  ),
+  th: (node: any, children: React.ReactNode, _parent: any, styles: any) => (
+    <View key={node.key} style={[styles._VIEW_SAFE_th, { flex: 1 }]}>
+      {children}
+    </View>
+  ),
+  td: (node: any, children: React.ReactNode, _parent: any, styles: any) => (
+    <View key={node.key} style={[styles._VIEW_SAFE_td, { flex: 1 }]}>
+      {children}
+    </View>
+  ),
 };
 
 // Themed styles for react-native-markdown-display. Colors follow the app theme;
