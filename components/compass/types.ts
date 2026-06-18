@@ -30,7 +30,7 @@ export type UserMessage = {
 
 export type Message = UserMessage | AssistantMessage;
 
-// Mirrors the ChatResponseChunkOrError union from the GraphQL schema.
+// Mirrors the ChatResponseChunkResult union from the GraphQL schema.
 export type ChatChunk =
   | { __typename: 'StartChatStream'; chatId: number }
   | { __typename: 'CompleteChatStream'; suggestedReplies: string[] }
@@ -40,7 +40,7 @@ export type ChatChunk =
   | { __typename: 'StartToolBlock'; toolType: string; toolId: string }
   | { __typename: 'DeltaToolInputBlock'; jsonFragment: string }
   | { __typename: 'CompleteToolBlock'; toolError: { message: string } | null }
-  | { __typename: 'AISummaryError'; message: string }
+  | { __typename: 'AIChatError'; message: string }
   | { __typename: 'PythonError'; message: string };
 
 export const applyChunk = (
@@ -103,7 +103,7 @@ export const applyChunk = (
         message: { ...msg, suggestedReplies: chunk.suggestedReplies, streaming: false },
       };
 
-    case 'AISummaryError':
+    case 'AIChatError':
     case 'PythonError':
       return {
         message: { ...msg, error: chunk.message, streaming: false },

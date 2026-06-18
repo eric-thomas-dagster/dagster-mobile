@@ -2,7 +2,7 @@ import { gql } from '@apollo/client';
 
 // Shared fragment for all Compass-style streaming responses.
 export const CHAT_RESPONSE_CHUNK_FRAGMENT = gql`
-  fragment ChatResponseChunkFields on ChatResponseChunkOrError {
+  fragment ChatResponseChunkFields on ChatResponseChunkResult {
     ...StartChatStreamFields
     ...CompleteChatStreamFields
     ...StartTextBlockFields
@@ -60,7 +60,7 @@ export const CHAT_RESPONSE_CHUNK_FRAGMENT = gql`
     __typename
   }
 
-  fragment AiSummaryErrorFields on AISummaryError {
+  fragment AiSummaryErrorFields on AIChatError {
     message
     __typename
   }

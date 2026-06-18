@@ -2,6 +2,16 @@
 
 A mobile-optimized React Native app for monitoring and observing your Dagster+ environment. This app provides a native mobile experience for Dagster+ customers who want to monitor their data pipelines on the go.
 
+## Screenshots
+
+| Home | Catalog | Jobs | Runs |
+| --- | --- | --- | --- |
+| ![Home](screenshots/01-home.jpg) | ![Catalog](screenshots/02-catalog.jpg) | ![Jobs](screenshots/03-jobs.jpg) | ![Runs](screenshots/04-runs.jpg) |
+
+| Run detail | Insights | Issues | Compass |
+| --- | --- | --- | --- |
+| ![Run detail](screenshots/05-run-detail.jpg) | ![Insights](screenshots/06-insights.jpg) | ![Issues](screenshots/07-issues.jpg) | ![Compass](screenshots/08-compass.jpg) |
+
 ## Features
 
 ### 📊 Dashboard
